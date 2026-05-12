@@ -1,0 +1,54 @@
+syntax = "proto3";
+package {{ module_snake }};
+option go_package = "{{ package }}/api/proto/{{ module_snake }}";
+
+service {{ module_pascal }}Handler {
+    rpc GetAll{{ module_pascal }}(GetAll{{ module_pascal }}Request) returns (GetAll{{ module_pascal }}Response);
+    rpc GetDetail{{ module_pascal }}(GetDetail{{ module_pascal }}Request) returns ({{ module_pascal }}Model);
+    rpc Create{{ module_pascal }}(Request{{ module_pascal }}Model) returns ({{ module_pascal }}Model);
+    rpc Update{{ module_pascal }}(Request{{ module_pascal }}Model) returns (BaseResponse);
+    rpc Delete{{ module_pascal }}(Request{{ module_pascal }}Model) returns (BaseResponse);
+}
+
+message Meta {
+    int64 limit = 1;
+    int64 page = 2;
+    int64 totalRecords = 3;
+    int64 totalPages = 4;
+}
+
+message GetAll{{ module_pascal }}Request {
+    int64 limit = 1;
+    int64 page = 2;
+    string search = 3;
+    string orderBy = 4;
+    string sort = 5;
+    bool showAll = 6;
+    string startDate = 7;
+    string endDate = 8;
+}
+
+message GetAll{{ module_pascal }}Response {
+    Meta meta = 1;
+    repeated {{ module_pascal }}Model data = 2;
+}
+
+message GetDetail{{ module_pascal }}Request {
+    int64 id = 1;
+}
+
+message Request{{ module_pascal }}Model {
+    int64 id = 1;
+    string name = 2;
+}
+
+message {{ module_pascal }}Model {
+    int64 id = 1;
+    string name = 2;
+    string createdAt = 3;
+    string updatedAt = 4;
+}
+
+message BaseResponse {
+    string message = 1;
+}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -10,10 +11,12 @@ from kapynis.shared.filter import Filter
 
 
 class Filter{{ module_pascal }}(Filter):
-    pass
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
 
 
 class Request{{ module_pascal }}(BaseModel):
+    id: Optional[int] = None
     name: str
 
 

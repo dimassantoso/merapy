@@ -1,0 +1,62 @@
+"""GraphQL delivery handler for {{ module_pascal }}."""
+
+from __future__ import annotations
+
+from typing import Any, Optional
+
+import strawberry
+
+from kapynis.logger import get_logger
+from src.pkg.shared.usecase.usecase import get_shared_usecase
+from src.internal.modules.{{ module_snake }}.domain import (
+    Filter{{ module_pascal }},
+    Request{{ module_pascal }},
+    Response{{ module_pascal }},
+)
+
+logger = get_logger(__name__)
+
+
+@strawberry.experimental.pydantic.type(model=Response{{ module_pascal }}, all_fields=True)
+class {{ module_pascal }}Type:
+    """Strawberry GraphQL type auto-generated from Response{{ module_pascal }} Pydantic model."""
+    pass
+
+
+@strawberry.type
+class {{ module_pascal }}Query:
+    @strawberry.field
+    async def {{ module_snake }}_list(self, page: int = 1, limit: int = 10) -> list[{{ module_pascal }}Type]:
+        f = Filter{{ module_pascal }}(page=page, limit=limit)
+        rows, _meta = await get_shared_usecase().{{ module_snake }}().get_all(f)
+        return [{{ module_pascal }}Type.from_pydantic(r) for r in rows]
+
+    @strawberry.field
+    async def {{ module_snake }}_detail(self, id: int) -> Optional[{{ module_pascal }}Type]:
+        row = await get_shared_usecase().{{ module_snake }}().get_detail(id)
+        return {{ module_pascal }}Type.from_pydantic(row) if row else None
+
+
+@strawberry.type
+class {{ module_pascal }}Mutation:
+    @strawberry.mutation
+    async def create_{{ module_snake }}(self, name: str) -> {{ module_pascal }}Type:
+        payload = Request{{ module_pascal }}(name=name)
+        result = await get_shared_usecase().{{ module_snake }}().create(payload)
+        return {{ module_pascal }}Type.from_pydantic(result)
+
+    @strawberry.mutation
+    async def delete_{{ module_snake }}(self, id: int) -> bool:
+        await get_shared_usecase().{{ module_snake }}().delete(id)
+        return True
+
+
+class {{ module_pascal }}GraphQLHandler:
+    def query(self) -> Any:
+        return {{ module_pascal }}Query
+
+    def mutation(self) -> Any:
+        return {{ module_pascal }}Mutation
+
+    def subscription(self) -> Any:
+        return None

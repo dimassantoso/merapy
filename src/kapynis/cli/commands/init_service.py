@@ -127,32 +127,17 @@ def _prompt_dependencies() -> set[str]:
             return selected
 
 
-# ---------------------------------------------------------------------------
-# Command
-# ---------------------------------------------------------------------------
-
-@click.command(help="Scaffold a new kapynis service (interactive, mirrors candi -init).")
-def init_service() -> None:
-    try:
-        import os
-        cwd = Path(os.getcwd())
-    except FileNotFoundError:
-        raise click.ClickException(
-            "current directory no longer exists — cd to a valid directory first"
-        )
-    service_name = _prompt_service_name(cwd)
-    modules = _prompt_modules()
-    server_handlers = _prompt_server_handlers()
-    worker_handlers = _prompt_worker_handlers()
-    dependencies = _prompt_dependencies()
-
+def _build_context(
+    service_name: str,
+    server_handlers: set[str],
+    worker_handlers: set[str],
+    dependencies: set[str],
+) -> dict[str, object]:
+    """Build the full Jinja2 context shared by service + module templates."""
     package = to_snake(service_name)
-    target = cwd / service_name
-    target.mkdir(parents=True, exist_ok=True)
-
-    context: dict[str, object] = {
+    return {
         "service_name": service_name,
-        "service_snake": to_snake(service_name),
+        "service_snake": package,
         "service_kebab": to_kebab(service_name),
         "service_pascal": to_pascal(service_name),
         "package": package,
@@ -173,6 +158,31 @@ def init_service() -> None:
         "use_mongo": "mongo" in dependencies,
     }
 
+
+# ---------------------------------------------------------------------------
+# Command
+# ---------------------------------------------------------------------------
+
+@click.command(help="Scaffold a new kapynis service (interactive, mirrors candi -init).")
+def init_service() -> None:
+    try:
+        import os
+        cwd = Path(os.getcwd())
+    except FileNotFoundError:
+        raise click.ClickException(
+            "current directory no longer exists — cd to a valid directory first"
+        )
+    service_name = _prompt_service_name(cwd)
+    modules = _prompt_modules()
+    server_handlers = _prompt_server_handlers()
+    worker_handlers = _prompt_worker_handlers()
+    dependencies = _prompt_dependencies()
+
+    target = cwd / service_name
+    target.mkdir(parents=True, exist_ok=True)
+
+    context = _build_context(service_name, server_handlers, worker_handlers, dependencies)
+
     written = render_tree("service", target, context)
 
     # Scaffold each module and inject markers (same as add-module).
@@ -180,6 +190,7 @@ def init_service() -> None:
         _inject_repository_markers,
         _inject_service_markers,
         _inject_usecase_markers,
+        _inject_graphql_schema_markers,
     )
     for module_snake in modules:
         module_pascal = to_pascal(module_snake)
@@ -194,11 +205,13 @@ def init_service() -> None:
         _inject_usecase_markers(target, module_snake, module_pascal)
         _inject_repository_markers(target, module_snake, module_pascal)
         _inject_service_markers(target, module_snake, module_pascal)
+        if "graphql" in server_handlers:
+            _inject_graphql_schema_markers(target, module_snake, module_pascal)
 
     # Save kapynis.json — mirrors candi.json; read by add-module / add-handler.
     config_data = {
         "service_name": service_name,
-        "package": package,
+        "package": to_snake(service_name),
         "modules": modules,
         "server_handlers": sorted(server_handlers),
         "worker_handlers": sorted(worker_handlers),

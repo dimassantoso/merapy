@@ -1,0 +1,25 @@
+schema {
+    query: Query
+    mutation: Mutation
+    subscription: Subscription
+}
+
+enum AuthTypeDirective {
+    BASIC
+    BEARER
+    MULTIPLE
+}
+directive @auth(authType: AuthTypeDirective!) on FIELD_DEFINITION
+directive @permissionACL(permissionCode: String!) on FIELD_DEFINITION
+
+type Query {
+    # @kapynis:queryRoot
+}
+
+type Mutation {
+    # @kapynis:mutationRoot
+}
+
+type Subscription {
+    # @kapynis:subscriptionRoot
+}

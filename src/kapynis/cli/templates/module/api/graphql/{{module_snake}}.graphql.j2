@@ -1,0 +1,32 @@
+# {{ module_pascal }} GraphQL schema
+
+type {{ module_pascal }}QueryResolver {
+    getAll{{ module_pascal }}(filter: FilterListInputResolver): {{ module_pascal }}ListResolver! @permissionACL(permissionCode: "getAll{{ module_pascal }}")
+    getDetail{{ module_pascal }}(id: Int!): {{ module_pascal }}Resolver! @permissionACL(permissionCode: "getDetail{{ module_pascal }}")
+}
+
+type {{ module_pascal }}MutationResolver {
+    create{{ module_pascal }}(data: {{ module_pascal }}InputResolver!): {{ module_pascal }}Resolver! @permissionACL(permissionCode: "create{{ module_pascal }}")
+    update{{ module_pascal }}(id: Int!, data: {{ module_pascal }}InputResolver!): String! @permissionACL(permissionCode: "update{{ module_pascal }}")
+    delete{{ module_pascal }}(id: Int!): String! @permissionACL(permissionCode: "delete{{ module_pascal }}")
+}
+
+type {{ module_pascal }}SubscriptionResolver {
+    listenData{{ module_pascal }}: {{ module_pascal }}Resolver!
+}
+
+type {{ module_pascal }}ListResolver {
+    meta: MetaResolver!
+    data: [{{ module_pascal }}Resolver!]!
+}
+
+type {{ module_pascal }}Resolver {
+    id: Int!
+    name: String!
+    createdAt: String!
+    updatedAt: String!
+}
+
+input {{ module_pascal }}InputResolver {
+    name: String!
+}

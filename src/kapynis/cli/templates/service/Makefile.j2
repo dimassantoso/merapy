@@ -1,4 +1,4 @@
-.PHONY: run test lint typecheck migration migration-create
+.PHONY: run test lint typecheck migration migration-create proto
 
 run:
 	python main.py
@@ -21,3 +21,12 @@ migration-create:
 
 migration-down:
 	alembic downgrade -1
+
+{% if use_grpc %}proto:
+	@find api/proto -name '*.proto' | xargs -I{} python -m grpc_tools.protoc \
+		-I api/proto \
+		--python_out=src/proto \
+		--grpc_python_out=src/proto \
+		{}
+	@echo "✓ proto stubs generated in src/proto/"
+{% endif %}

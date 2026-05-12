@@ -1,0 +1,11 @@
+"""Embedded API schema sources — mirrors candi's ``api/api.go`` embed pattern."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+# Root of the api/ directory — use this to load schema files at runtime.
+API_DIR = Path(__file__).parent
+JSONSCHEMA_DIR = API_DIR / "jsonschema"
+GRAPHQL_DIR = API_DIR / "graphql"
+PROTO_DIR = API_DIR / "proto"

@@ -1,0 +1,17 @@
+{% if use_redis_subscriber %}"""Redis subscriber handler for {{ module_pascal }}."""
+
+from __future__ import annotations
+
+from kapynis.codebase.types import EventContext, WorkerHandlerGroup
+from kapynis.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class {{ module_pascal }}RedisHandler:
+    def mount_handlers(self, group: WorkerHandlerGroup) -> None:
+        group.add("{{ module_snake }}:*", self._handle)
+
+    async def _handle(self, ctx: EventContext) -> None:
+        logger.info("{{ module_snake }}.redis_event", key=ctx.key, body_len=len(ctx.body))
+{% endif %}

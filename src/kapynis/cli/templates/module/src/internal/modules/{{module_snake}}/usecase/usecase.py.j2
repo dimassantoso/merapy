@@ -21,6 +21,7 @@ class {{ module_pascal }}Usecase(Protocol):
     async def get_all(self, f: Filter{{ module_pascal }}) -> tuple[list[Response{{ module_pascal }}], Meta]: ...
     async def get_detail(self, id_: int) -> Response{{ module_pascal }} | None: ...
     async def create(self, payload: Request{{ module_pascal }}) -> Response{{ module_pascal }}: ...
+    async def update(self, id_: int, payload: Request{{ module_pascal }}) -> Response{{ module_pascal }}: ...
     async def delete(self, id_: int) -> None: ...
 
 
@@ -42,6 +43,14 @@ class _Impl(BaseUsecase):
         entity = {{ module_pascal }}Model(name=payload.name)
         saved = await self._repo.save(entity)
         return Response{{ module_pascal }}.model_validate(saved)
+
+    async def update(self, id_: int, payload: Request{{ module_pascal }}) -> Response{{ module_pascal }}:
+        entity = await self._repo.find(id_)
+        if entity is None:
+            raise ValueError(f"{{ module_snake }} with id {id_} not found")
+        entity.name = payload.name
+        updated = await self._repo.update(entity)
+        return Response{{ module_pascal }}.model_validate(updated)
 
     async def delete(self, id_: int) -> None:
         await self._repo.delete(id_)

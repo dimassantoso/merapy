@@ -36,6 +36,12 @@ class {{ module_pascal }}RepoSQL(BaseSQLRepository):
             await session.flush()
             return entity
 
+    async def update(self, entity: {{ module_pascal }}) -> {{ module_pascal }}:
+        async with self._session() as session:
+            merged = await session.merge(entity)
+            await session.flush()
+            return merged
+
     async def delete(self, id_: int) -> None:
         async with self._session() as session:
             entity = await session.get({{ module_pascal }}, id_)

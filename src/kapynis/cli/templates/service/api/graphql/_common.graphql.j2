@@ -1,0 +1,24 @@
+input FilterListInputResolver {
+    limit: Int
+    page: Int
+    "Optional (asc desc)"
+    sort: FilterSortEnum
+    "Optional"
+    orderBy: String
+    "Optional"
+    showAll: Boolean
+    "Optional"
+    search: String
+}
+
+type MetaResolver {
+    page: Int!
+    limit: Int!
+    totalRecords: Int!
+    totalPages: Int!
+}
+
+enum FilterSortEnum {
+    ASC
+    DESC
+}
