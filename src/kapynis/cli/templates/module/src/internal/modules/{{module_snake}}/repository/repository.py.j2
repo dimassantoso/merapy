@@ -1,0 +1,16 @@
+"""{{ module_pascal }}Repository — abstract interface (Protocol)."""
+
+from __future__ import annotations
+
+from typing import Protocol
+
+from src.internal.modules.{{ module_snake }}.domain import Filter{{ module_pascal }}
+from src.pkg.shared.domain.{{ module_snake }} import {{ module_pascal }}
+
+
+class {{ module_pascal }}Repository(Protocol):
+    async def fetch_all(self, f: Filter{{ module_pascal }}) -> list[{{ module_pascal }}]: ...
+    async def count(self, f: Filter{{ module_pascal }}) -> int: ...
+    async def find(self, id_: int) -> {{ module_pascal }} | None: ...
+    async def save(self, entity: {{ module_pascal }}) -> {{ module_pascal }}: ...
+    async def delete(self, id_: int) -> None: ...

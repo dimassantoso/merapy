@@ -1,0 +1,42 @@
+"""Module factory for {{ module_pascal }}.
+
+Mirrors candi's per-module ``module.go``. Wires the module's delivery
+handlers (REST / gRPC / GraphQL / worker) given the shared dependency.
+"""
+
+from __future__ import annotations
+
+from kapynis.codebase.factory.dependency import Dependency
+from kapynis.codebase.factory.module_factory import ModuleFactory
+from kapynis.codebase.interfaces.handlers import (
+    GraphQLHandler,
+    GRPCHandler,
+    RESTHandler,
+    ServerHandler,
+    WorkerHandler,
+)
+from kapynis.codebase.types import Server, Worker
+
+from src.internal.modules.{{ module_snake }}.delivery.rest_handler import {{ module_pascal }}RESTHandler
+
+
+class {{ module_pascal }}Module:
+    name = "{{ module_snake }}"
+
+    def __init__(self, deps: Dependency) -> None:
+        self._rest = {{ module_pascal }}RESTHandler(deps)
+
+    def rest_handler(self) -> RESTHandler | None:
+        return self._rest
+
+    def grpc_handler(self) -> GRPCHandler | None:
+        return None
+
+    def graphql_handler(self) -> GraphQLHandler | None:
+        return None
+
+    def worker_handler(self, worker_type: Worker) -> WorkerHandler | None:
+        return None
+
+    def server_handler(self, server_type: Server | str) -> ServerHandler | None:
+        return None

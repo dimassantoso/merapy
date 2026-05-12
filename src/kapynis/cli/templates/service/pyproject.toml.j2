@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "{{ service_kebab }}"
+version = "0.1.0"
+description = "{{ service_name }} — built with kapynis."
+requires-python = ">=3.11"
+dependencies = [
+    "kapynis",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[tool.setuptools.packages.find]
+# src/ is a package (has __init__.py); discover src.internal, src.pkg, src.configs
+include = ["src*"]
+namespaces = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

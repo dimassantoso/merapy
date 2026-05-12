@@ -1,0 +1,23 @@
+.PHONY: run test lint typecheck migration migration-create
+
+run:
+	python main.py
+
+test:
+	pytest -v --tb=short
+
+lint:
+	ruff check src tests
+
+typecheck:
+	mypy src
+
+migration:
+	alembic upgrade head
+
+migration-create:
+	@test -n "$(name)" || (echo "usage: make migration-create name=<change>"; exit 1)
+	alembic revision --autogenerate -m "$(name)"
+
+migration-down:
+	alembic downgrade -1
