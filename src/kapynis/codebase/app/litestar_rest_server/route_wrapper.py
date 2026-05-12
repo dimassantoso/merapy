@@ -11,13 +11,23 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from litestar import Router, delete, get, head, options, patch, post, put
-from litestar.handlers.http_handlers import HTTPRouteHandler
+from litestar import Router, delete, get, head, patch, post, put
+from litestar.handlers.http_handlers import HTTPRouteHandler, route as _route_decorator
 
 from kapynis.codebase.interfaces.rest_router import HTTPMiddleware, RouteHandler
 
 if TYPE_CHECKING:
     from litestar import Litestar
+
+def _options(path: str, **kwargs: object) -> HTTPRouteHandler:
+    """Factory for OPTIONS route handlers.
+
+    Litestar 2.x does not expose an ``options`` shorthand decorator at the
+    top-level package. Use the generic ``HTTPRouteHandler`` (aliased as
+    ``route`` in ``litestar.handlers``) with ``http_method="OPTIONS"`` instead.
+    """
+    return _route_decorator(path, http_method="OPTIONS", **kwargs)  # type: ignore[arg-type]
+
 
 _METHOD_DECORATORS = {
     "GET": get,
@@ -26,7 +36,7 @@ _METHOD_DECORATORS = {
     "PATCH": patch,
     "DELETE": delete,
     "HEAD": head,
-    "OPTIONS": options,
+    "OPTIONS": _options,
 }
 
 

@@ -22,7 +22,8 @@ class RepoSQL(Protocol):
 
 class _RepoSQLImpl:
     # @kapynis:repositoryField
-    pass
+
+    # @kapynis:repositoryImplementation
 
 
 _shared: SharedSingleton[RepoSQL] = SharedSingleton(name="repo_sql")
@@ -35,8 +36,6 @@ def set_shared_repository(deps: Dependency) -> None:
     session_factory = sql_db.session_factory()
     impl = _RepoSQLImpl()
     # @kapynis:repositoryConstructor
-    # Bind getters dynamically — mirrors candi's per-method delegation.
-    # @kapynis:repositoryImplementation
     _shared.set(impl)  # type: ignore[arg-type]
 
 
