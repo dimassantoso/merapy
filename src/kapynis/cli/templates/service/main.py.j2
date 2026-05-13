@@ -6,6 +6,7 @@ import asyncio
 
 from kapynis.codebase.app.app import App
 from kapynis.config.config import load_config
+from kapynis.config.migration import check_pending_migrations
 from kapynis.logger import init_logger
 
 from src.configs.config import load_service_configs
@@ -16,6 +17,7 @@ async def main() -> None:
     cfg = load_config()
     init_logger(service=cfg.env.service_name, debug=cfg.env.debug_mode)
     await cfg.load(load_service_configs)
+    await check_pending_migrations(cfg)
     service = Service(cfg)
     try:
         await App(service).run()

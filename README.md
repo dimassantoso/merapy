@@ -8,12 +8,23 @@ Python clean-architecture microservice framework — a Pythonic port of [candi](
 
 ## What you get
 
-- **One service binary, many transports.** REST + gRPC + GraphQL + 6 worker types (Kafka, RabbitMQ, Redis pub/sub, Cron, Postgres LISTEN, persistent TaskQueue) — all wired into a single `asyncio.gather` orchestrator with graceful shutdown.
+- **One service, many transports.** REST + gRPC + GraphQL + 6 worker types (Kafka, RabbitMQ, Redis pub/sub, Cron, Postgres LISTEN, persistent TaskQueue) — all wired into a single `asyncio.gather` orchestrator with graceful shutdown.
 - **REST adapter is pluggable.** FastAPI by default. Litestar via `REST_FRAMEWORK=litestar`. Module handlers see only the `RESTRouter` Protocol — same code works under both.
 - **Clean architecture by default.** `delivery → usecase → repository → DB` separation enforced by the module template; cross-module calls route through a singleton bridge so there's never a circular import.
 - **Singletons that mirror candi's `sync.Once`** — idempotent, thread-safe, set once at boot.
 - **Code-gen markers** (`# @kapynis:*`) so `kapynis add-module` extends the shared usecase / repository / service files without you editing them.
 - **SQLAlchemy 2.x async + Alembic migrations + Pydantic v2 + structlog + OpenTelemetry** out of the box.
+- **Task Queue dashboard** — built-in GraphQL API + embedded Next.js UI served on `TASK_QUEUE_DASHBOARD_PORT` (default 8080). Open `http://localhost:8080` after `make run`.
+
+---
+
+## Repos
+
+| Repo | Purpose |
+|------|---------|
+| [`kapynis`](https://github.com/dimassantoso/kapynis) | The framework |
+| [`kapynis-taskqueue-dashboard`](https://github.com/dimassantoso/kapynis-taskqueue-dashboard) | Task queue dashboard UI (Next.js, embedded into kapynis) |
+| [`kapynis-plugin`](https://github.com/dimassantoso/kapynis-plugin) | Optional adapters (brokers, storage, REST engines) |
 
 ---
 
@@ -23,46 +34,30 @@ Requires **Python 3.11+** (3.12 is the development reference).
 
 ### As an end user — just want the CLI
 
-**Recommended: [`pipx`](https://pipx.pypa.io/)** — installs the CLI into its own isolated venv, drops `kapynis` on your PATH globally. The Python equivalent of `go install`.
-
 ```bash
-# One-time setup
-brew install pipx && pipx ensurepath
+# pipx (recommended — isolated, global CLI)
+pipx install kapynis                                          # once on PyPI
+pipx install git+https://github.com/dimassantoso/kapynis.git  # from GitHub
 
-# Install kapynis
-pipx install kapynis                                       # once published to PyPI
-pipx install git+https://github.com/santosodb/kapynis.git  # before PyPI — direct from GitHub
+# uv (faster alternative)
+uv tool install git+https://github.com/dimassantoso/kapynis.git
 ```
 
-Or with [`uv`](https://docs.astral.sh/uv/) (faster, modern alternative):
+### As a contributor — editable clone
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-uv tool install kapynis                                       # once on PyPI
-uv tool install git+https://github.com/santosodb/kapynis.git  # before PyPI
-```
-
-Now `kapynis` works anywhere on the system.
-
-Plain `pip install kapynis` also works but pollutes the active environment — prefer pipx / uv for CLI tools.
-
-### As a contributor — editable clone for development
-
-```bash
-git clone https://github.com/santosodb/kapynis.git
+git clone https://github.com/dimassantoso/kapynis.git
 cd kapynis
 python3.12 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 ```
 
-`kapynis` is now on your PATH inside the venv; edits to `src/kapynis/` take effect immediately.
-
 ---
 
-## Quickstart — scaffold and run a service
+## Quickstart
 
 ```bash
-# 1. Scaffold interactively — wizard prompts for name, modules, handlers, deps
+# 1. Scaffold interactively
 kapynis init
 ```
 
@@ -77,119 +72,122 @@ Please input service name
 >> my-service
 
 Please input new module names (if more than one, separated by comma)
->> expense
+>> product
 
 Please select server handlers (separated by comma, enter for skip)
-1) REST API
-2) GRPC
-3) GraphQL
->> 1
+1) REST API  2) GRPC  3) GraphQL
+>> 1,3
 
 Please select worker handlers (separated by comma, enter to skip)
-1) Kafka
-2) Cron Scheduler
-3) Redis Subscriber
-4) RabbitMQ
-5) Postgres Listener
-6) Task Queue
->>
+1) Kafka  2) Cron Scheduler  3) Redis Subscriber
+4) RabbitMQ  5) Postgres Listener  6) Task Queue
+>> 6
 
 Please select dependencies (separated by comma, enter to skip)
-1) Redis
-2) SQL Database
-3) Mongo Database
+1) Redis  2) SQL Database  3) Mongo Database
 >> 2
 
 ✓ service 'my-service' scaffolded at ./my-service
 ```
 
 ```bash
-# 2. Install the service's dependencies
+# 2. Enter the service and install dependencies
 cd my-service
 python3.12 -m venv .venv
-.venv/bin/pip install -e ".[dev]"
+source .venv/bin/activate
+pip install -e ".[dev]"
 
-# 3. Add more modules any time
-.venv/bin/kapynis add-module
+# 3. Configure .env (set your actual DB DSN)
+# SQL_DSN_WRITE=postgresql+asyncpg://postgres:postgres@localhost:5432/my_service
 
-# 4. Configure datastores (edit .env)
+# 4. Create the database
+createdb my_service
+
 # 5. Run migrations
-.venv/bin/alembic revision --autogenerate -m "init"
-.venv/bin/alembic upgrade head
+make migration-create name=init
+make migration
 
-# 6. Boot the service
-.venv/bin/python main.py
+# 6. Start the service
+make run
 ```
 
-By default the service binds REST on `http://localhost:8000/`. Try:
-
-```bash
-curl http://localhost:8000/v1/expense/
-```
-
-Expected envelope:
-
-```json
-{
-  "success": true,
-  "code": 200,
-  "message": "success",
-  "meta": { "page": 1, "limit": 10, "totalRecords": 0, "totalPages": 0 },
-  "data": []
-}
-```
+REST API: `http://localhost:8000/v1/product/`
+GraphQL: `http://localhost:8100/graphql`
+Task Queue Dashboard: `http://localhost:8080` *(if USE_TASK_QUEUE_WORKER=true)*
 
 ---
 
 ## CLI reference
 
-Running `kapynis` with no arguments opens the interactive menu — identical to candi's UX.
-All three commands can also be invoked directly:
+Running `kapynis` with no arguments opens the interactive menu.
 
 | Command | What it does |
-|---|---|
-| `kapynis init` | Interactive wizard: service name → modules → server handlers → worker handlers → dependencies. Scaffolds a complete service directory. |
-| `kapynis add-module` | Generates `src/internal/modules/<name>/` (module + domain + usecase + repository + REST handler + SQLAlchemy model) and injects `# @kapynis:*` markers into the shared usecase / repository / service files. |
-| `kapynis add-handler` | Adds a delivery handler (`rest` / `cron` / `kafka` / …) to an existing module. |
+|---------|-------------|
+| `kapynis init` | Wizard: service name → modules → server handlers → worker handlers → dependencies. Scaffolds a complete service. |
+| `kapynis add-module <name>` | Generates `src/internal/modules/<name>/` (module + domain + usecase + repository + delivery handlers) and injects `# @kapynis:*` markers into shared UOW files. |
+| `kapynis add-handler <module> <type>` | Adds a delivery handler (`rest`/`grpc`/`graphql`/`kafka`/`cron`/`redis`/`rabbitmq`/`postgres`/`task_queue`) to an existing module. |
 
-The CLI uses Click + Jinja2 templates bundled inside the package at `src/kapynis/cli/templates/`.
+---
+
+## Makefile targets
+
+| Target | What it does |
+|--------|-------------|
+| `make run` | Start the service (`python main.py`) |
+| `make migration-create name=X` | Generate alembic migration file |
+| `make migration` | Apply pending migrations (`alembic upgrade head`) |
+| `make migration-down` | Roll back last migration |
+| `make test` | Run pytest |
+| `make lint` | Ruff lint |
+| `make typecheck` | mypy |
+| `make proto` | Generate gRPC stubs from `api/proto/*.proto` *(if USE_GRPC=true)* |
 
 ---
 
 ## Configuration
 
-Every boot decision is **env-driven** (just like candi). The `.env` generated by `kapynis init` contains only the toggles relevant to your selections:
+Every boot decision is **env-driven**. The `.env` generated by `kapynis init` contains only the toggles relevant to your selections:
 
 ```bash
 SERVICE_NAME=my-service
 ENVIRONMENT=development
+DEBUG_MODE=true
+LOAD_CONFIG_TIMEOUT=30s
 
-# Which servers/workers boot
+# Server handlers
 USE_REST=true
 USE_GRPC=false
-USE_GRAPHQL=false
-USE_CRON_SCHEDULER=false
+USE_GRAPHQL=true
+HTTP_PORT=8000
+HTTP_ROOT_PATH=/
+REST_FRAMEWORK=fastapi   # or: litestar
+GRPC_PORT=8002
+
+# Worker handlers
 USE_KAFKA_CONSUMER=false
+USE_CRON_SCHEDULER=false
 USE_REDIS_SUBSCRIBER=false
 USE_RABBITMQ_WORKER=false
 USE_POSTGRES_LISTENER=false
-USE_TASK_QUEUE_WORKER=false
+USE_TASK_QUEUE_WORKER=true
+TASK_QUEUE_DASHBOARD_PORT=8080
 
-# REST framework selection (FastAPI default, Litestar alternative)
-REST_FRAMEWORK=fastapi
-
-# Ports
-HTTP_PORT=8000
-GRPC_PORT=9000
-
-# Datastores (only included when selected during init)
+# Datastores
+SQL_DSN_READ=postgresql+asyncpg://postgres:postgres@localhost:5432/my_service
 SQL_DSN_WRITE=postgresql+asyncpg://postgres:postgres@localhost:5432/my_service
+REDIS_DSN_READ=redis://localhost:6379/0
 REDIS_DSN_WRITE=redis://localhost:6379/0
 
-MAX_CONCURRENT_TASKS=10
-```
+# Brokers (only included when selected)
+KAFKA_BROKERS=localhost:9092
+KAFKA_CLIENT_ID=my_service
+KAFKA_CONSUMER_GROUP=my_service
+RABBITMQ_BROKER=amqp://guest:guest@localhost:5672/
+RABBITMQ_EXCHANGE_NAME=delayed
 
-All env vars are parsed into a [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) `Env` class — see [`src/kapynis/config/env.py`](src/kapynis/config/env.py) for the full schema.
+CORS_ALLOW_ORIGINS=["*"]
+MAX_WORKERS=10
+```
 
 ---
 
@@ -197,49 +195,71 @@ All env vars are parsed into a [pydantic-settings](https://docs.pydantic.dev/lat
 
 ```
 my-service/
-├── main.py                          ← entry point
-├── pyproject.toml                   ← pip install -e .
-├── .env                             ← env vars (gitignored)
-├── kapynis.json                     ← scaffolding config (mirrors candi.json)
-├── Makefile
-├── alembic.ini
+├── api/
+│   ├── graphql/
+│   │   ├── _schema.graphql      ← root schema with @kapynis:queryRoot markers
+│   │   ├── _common.graphql      ← shared types (FilterListInputResolver, MetaResolver)
+│   │   └── <module>.graphql     ← per-module GraphQL types
+│   ├── jsonschema/
+│   │   └── <module>/
+│   │       ├── get_all.json
+│   │       └── save.json
+│   └── proto/
+│       └── <module>/
+│           └── <module>.proto   ← gRPC service definition
 ├── alembic/
-│   └── env.py                       ← imports from src.pkg.shared.domain
-└── src/                             ← Python package (src/__init__.py)
+│   └── env.py                   ← sys.path fix + load_dotenv + merged metadata
+├── alembic.ini
+├── main.py                      ← entry point (includes migration guard)
+├── pyproject.toml
+├── Makefile
+├── .env
+├── kapynis.json                 ← scaffolding config (mirrors candi.json)
+└── src/
     ├── internal/
-    │   ├── service.py               ← ServiceFactory wiring
-    │   └── modules/
-    │       └── expense/
-    │           ├── module.py
-    │           ├── domain/          ← Pydantic DTOs (Request / Filter)
-    │           ├── delivery/        ← rest_handler.py
-    │           ├── usecase/         ← usecase.py
-    │           └── repository/      ← repository.py + repo_sql.py
+    │   ├── service.py           ← ServiceFactory wiring
+    │   └── modules/<name>/
+    │       ├── module.py        ← ModuleFactory (conditional handler wiring)
+    │       ├── domain/          ← Pydantic DTOs (Filter/Request/Response)
+    │       ├── delivery/
+    │       │   ├── rest_handler.py
+    │       │   ├── grpc_handler.py
+    │       │   ├── graphql_handler.py
+    │       │   ├── kafka_handler.py
+    │       │   ├── cron_handler.py
+    │       │   ├── redis_handler.py
+    │       │   ├── rabbitmq_handler.py
+    │       │   ├── postgres_handler.py
+    │       │   └── task_queue_handler.py
+    │       ├── usecase/         ← Protocol + _Impl (get_all/get_detail/create/update/delete)
+    │       └── repository/      ← Protocol + RepoSQL (SQLAlchemy 2.x async)
     ├── pkg/
     │   └── shared/
-    │       ├── domain/              ← SQLAlchemy models (registered with Alembic)
-    │       ├── repository/          ← SharedRepository UOW singleton
-    │       └── usecase/             ← SharedUsecase UOW singleton
+    │       ├── domain/          ← SQLAlchemy DeclarativeBase + ORM models
+    │       ├── repository/      ← SharedRepository UOW singleton
+    │       └── usecase/         ← SharedUsecase UOW singleton
     └── configs/
-        └── config.py                ← LoadServiceConfigs (DB, broker, deps)
-```
-
-All imports follow a clear two-namespace convention:
-
-```python
-# kapynis framework — installed via pip, shows provenance like Go's module path
-from kapynis.codebase.factory.dependency import Dependency
-from kapynis.codebase.interfaces.rest_router import RESTRouter
-from kapynis.wrapper.http_response import HTTPResponse
-
-# service-local code — always prefixed with src.
-from src.internal.modules.expense.domain import CreateExpenseRequest
-from src.pkg.shared.usecase.usecase import get_shared_usecase
+        └── config.py            ← load_service_configs (DB, brokers, deps)
 ```
 
 ---
 
-## Architecture cheat sheet
+## Task Queue Dashboard
+
+When `USE_TASK_QUEUE_WORKER=true`, the worker automatically serves a dashboard on `TASK_QUEUE_DASHBOARD_PORT` (default **8080**):
+
+- `http://localhost:8080/` — dashboard UI (embedded Next.js static build)
+- `http://localhost:8080/graphql` — GraphQL API
+
+**Features:** view all jobs, filter by task/status, retry failed jobs, delete jobs, bulk retry/clean, pagination. Auto-refreshes every 5 seconds.
+
+The dashboard UI is maintained in [`kapynis-taskqueue-dashboard`](https://github.com/dimassantoso/kapynis-taskqueue-dashboard) and embedded into the kapynis package via `make embed`.
+
+**Task queue tables** use the same schema as candi's `task_queue_worker_jobs` — compatible with the original [task-queue-worker-dashboard](https://github.com/agungdwiprasetyo/task-queue-worker-dashboard).
+
+---
+
+## Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -255,119 +275,92 @@ from src.pkg.shared.usecase.usecase import get_shared_usecase
 
 Per-module clean-architecture flow:
 
-    REST/gRPC/GraphQL handler ──► Usecase ──► Repository ──► DB
-                                    │
-                                    └─► shared_usecase (cross-module)
+    REST/gRPC/GraphQL/Worker handler ──► Usecase ──► Repository ──► DB
+                                            │
+                                            └─► shared_usecase (cross-module bridge)
 ```
 
-| Layer | Where it lives | Responsibility |
-|---|---|---|
-| **Delivery** | `src/internal/modules/<m>/delivery/` | HTTP / gRPC / worker glue. Reads `domain.Request*`, calls usecase, writes `HTTPResponse`. |
-| **Usecase** | `src/internal/modules/<m>/usecase/` | Business logic. Holds repo, cache, locker, publishers, sibling-module bridge. |
-| **Repository** | `src/internal/modules/<m>/repository/` | Data access. Uses `with_transaction` (contextvar) so nested calls share one session. |
-| **Domain** | `src/internal/modules/<m>/domain/` | Pydantic DTOs (Request / Response / Filter). |
-| **Shared DB models** | `src/pkg/shared/domain/` | SQLAlchemy declarative models — registered with Alembic. |
-| **Shared UOW** | `src/pkg/shared/{repository,usecase}/` | Singleton aggregators with `# @kapynis:*` markers — each `add-module` call extends them. |
+| Layer | Location | Responsibility |
+|-------|----------|---------------|
+| **Delivery** | `src/internal/modules/<m>/delivery/` | HTTP / gRPC / GraphQL / worker glue |
+| **Usecase** | `src/internal/modules/<m>/usecase/` | Business logic |
+| **Repository** | `src/internal/modules/<m>/repository/` | Data access via SQLAlchemy async |
+| **Domain** | `src/internal/modules/<m>/domain/` | Pydantic DTOs |
+| **Shared DB models** | `src/pkg/shared/domain/` | SQLAlchemy models registered with Alembic |
+| **Shared UOW** | `src/pkg/shared/{repository,usecase}/` | Singleton aggregators extended by `add-module` |
 
 ---
 
 ## Swap the REST engine
 
-The framework ships two `RESTRouter` adapters. Pick at boot:
-
 ```bash
-REST_FRAMEWORK=fastapi python main.py     # default
-REST_FRAMEWORK=litestar python main.py    # alternative
+REST_FRAMEWORK=fastapi python main.py   # default
+REST_FRAMEWORK=litestar python main.py  # alternative
 ```
 
-Module handlers are unchanged — they only depend on the abstract `RESTRouter` Protocol. To plug in yet another engine (Sanic, BlackSheep, …) install the matching package from [kapynis-plugin](https://github.com/santosodb/kapynis-plugin) and register its `AppServerFactory` in `src/internal/service.py`.
+Module handlers only depend on the abstract `RESTRouter` Protocol — same code works under both.
 
 ---
 
-## Plugins
+## Migration guard
 
-Optional adapters live in [`kapynis-plugin`](https://github.com/santosodb/kapynis-plugin) — mirrors candi-plugin:
+`main.py` calls `check_pending_migrations(cfg)` at startup. If tables are missing it:
+1. Auto-generates an alembic revision file
+2. Prints clear instructions
+3. Exits with code 1
 
-- `kapynis-sanic-rest` / `kapynis-blacksheep-rest` — alternative REST engines
-- `kapynis-gcp-pubsub` / `kapynis-aws-sqs` / `kapynis-stomp-broker` — additional brokers
-- `kapynis-arangodb` / `kapynis-oracledb` — additional storage adapters
-- `kapynis-tracer-otlp` — OTLP span exporter for the OpenTelemetry tracer
-- `kapynis-circuit-breaker` — resilience middleware
-- `kapynis-p2p` — libp2p `AppServerFactory`
-- `kapynis-task-queue-admin` — enhanced TaskQueue with GraphQL admin UI
+```
+✗ Database schema is out of date.
+  Missing tables: 'product'
+
+  Generating .../alembic/versions/20260513_add_product.py
+
+✓ Migration file created. Run:
+
+    make migration
+
+Then restart with:
+
+    make run
+```
 
 ---
 
-## Framework layout
+## How kapynis compares to candi
 
-```
-kapynis/
-├── pyproject.toml              ← setuptools, src layout, PyPI metadata
-├── setup.py                    ← package-dir shim (maps kapynis.* → src/kapynis/*)
-├── Makefile
-├── CLAUDE.md                   ← contributor / AI context
-├── examples/                   ← sample services
-├── tests/unit/                 ← 26 passing unit tests
-└── src/kapynis/                ← the framework package
-    ├── codebase/               ← Protocols + factories + 11 server/worker apps
-    ├── config/                 ← Env (pydantic-settings) + DB / broker init
-    ├── shared/                 ← Meta, Filter, TokenClaim, PublisherArgument
-    ├── helper/                 ← MultiError, string_case, query_param
-    ├── utils/                  ← RedisLocker
-    ├── logger/  tracer/        ← structlog JSON + OpenTelemetry
-    ├── wrapper/                ← HTTPResponse envelope + built-in middleware
-    ├── middleware/             ← Bearer / Basic / ACL guards
-    ├── validator/              ← JSON-Schema + Pydantic
-    ├── repository/             ← BaseSQLRepository + with_transaction
-    ├── usecase/                ← BaseUsecase + UOW singletons
-    └── cli/                    ← Click commands + Jinja2 templates
-```
-
-**src layout** — `src/kapynis/` is the physical package directory. IDEs (PyCharm, VS Code Pylance) resolve `from kapynis.xxx import ...` without any extra configuration.
+| Concept | candi (Go) | kapynis (Python) |
+|---------|-----------|-----------------|
+| Service factory | `factory.ServiceFactory` interface | `ServiceFactory` Protocol |
+| App server factory | `factory.AppServerFactory` | async `serve()` / `shutdown()` / `name` |
+| Dependency container | `dependency.Dependency` + `stdDeps` | `Dependency` + module-level `_std_deps` |
+| Shared UOW | `sync.Once` + `SetSharedUsecase` | `threading.Lock` + `SharedSingleton[T]` |
+| Transaction in context | `RepoSQL.WithTransaction(ctx, fn)` | `with_transaction(session_factory)` via `contextvars` |
+| Response envelope | `wrapper.NewHTTPResponse(...)` | `HTTPResponse.new(...).to_response()` |
+| Code-gen markers | `// @candi:usecaseMethod` | `# @kapynis:usecaseMethod` |
+| Task queue schema | `task_queue_worker_jobs` | same table name + columns |
+| Task queue dashboard | embedded via `embed.FS` | embedded via `package-data` + FastAPI StaticFiles |
+| Migrations | goose | Alembic (autogenerate) |
+| Logger / tracer | zap / OpenTracing | structlog / OpenTelemetry |
+| CLI | `candi -init` / `-add-module` | `kapynis init` / `add-module` / `add-handler` |
 
 ---
 
 ## Development
 
 ```bash
-make test           # pytest tests/unit
-make lint           # ruff check
-make typecheck      # mypy --strict
-make format         # ruff format + autofix
+make test       # pytest tests/unit
+make lint       # ruff check src tests
+make typecheck  # mypy src
 ```
 
-The repo ships 26 unit tests covering: `Meta`, `Filter`, `MultiError`, `HTTPResponse`, `SharedSingleton` (idempotency), marker injection, cron pattern parsing, string case conversion. They run in under a second and require no external services.
-
-CLI smoke test:
+CLI smoke test after changes:
 
 ```bash
-kapynis init        # answer the wizard, name it demo-svc with one module
+kapynis init    # answer the wizard, name it demo-svc
 cd demo-svc
 python -m py_compile src/internal/service.py
 python -m py_compile src/internal/modules/*/usecase/usecase.py
 ```
-
-If those compile, the framework + templates + marker engine are all healthy.
-
----
-
-## How `kapynis` compares to `candi`
-
-| Concept | candi (Go) | kapynis (Python) |
-|---|---|---|
-| Service factory | `factory.ServiceFactory` interface | `ServiceFactory` Protocol |
-| App server factory | `factory.AppServerFactory` (Serve/Shutdown/Name) | async `serve()` / `shutdown()` / `name` |
-| Dependency container | `dependency.Dependency` + `stdDeps` singleton | `Dependency` + module-level `_std_deps` (free-function getters) |
-| Shared UOW | `sync.Once` + `SetSharedUsecase/RepoSQL` | `threading.Lock` + `SharedSingleton[T]` |
-| Cross-module bridge | `common.SetCommonUsecase` | `kapynis.usecase.singleton.set_common_usecase` |
-| Transaction in context | `RepoSQL.WithTransaction(ctx, fn)` | `with_transaction(session_factory)` using `contextvars.ContextVar` |
-| Response envelope | `wrapper.NewHTTPResponse(...)` | `HTTPResponse.new(...).to_response()` |
-| Module imports | `github.com/user/svc/internal/...` | `from src.internal.modules.xxx import ...` |
-| Framework imports | `github.com/golangid/candi/...` | `from kapynis.codebase.xxx import ...` |
-| Code-gen markers | `// @candi:usecaseMethod`, … | `# @kapynis:usecaseMethod`, … |
-| Migrations | goose | Alembic (autogenerate) |
-| Logger / tracer | zap / OpenTracing | structlog / OpenTelemetry |
-| CLI | `candi -init` / `-add-module` / `-add-handler` | `kapynis init` / `add-module` / `add-handler` |
 
 ---
 

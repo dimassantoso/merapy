@@ -70,6 +70,7 @@ class Env(BaseSettings):
     http_port: int = Field(default=8000, alias="HTTP_PORT")
     grpc_port: int = Field(default=9000, alias="GRPC_PORT")
     http_root_path: str = Field(default="/", alias="HTTP_ROOT_PATH")
+    task_queue_dashboard_port: int = Field(default=8080, alias="TASK_QUEUE_DASHBOARD_PORT")
 
     # SQL
     sql_dsn_read: str | None = Field(default=None, alias="SQL_DSN_READ")

@@ -85,6 +85,7 @@ namespaces = false
 
 [tool.setuptools.package-data]
 "kapynis.cli" = ["templates/**/*"]
+"kapynis.codebase.app.task_queue_worker" = ["dashboard_static/**/*"]
 "kapynis" = ["py.typed"]
 
 [tool.ruff]
