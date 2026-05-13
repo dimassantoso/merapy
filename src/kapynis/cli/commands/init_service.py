@@ -182,6 +182,7 @@ def init_service() -> None:
     target.mkdir(parents=True, exist_ok=True)
 
     context = _build_context(service_name, server_handlers, worker_handlers, dependencies)
+    context["modules"] = modules
 
     written = render_tree("service", target, context)
 

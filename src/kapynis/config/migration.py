@@ -96,8 +96,8 @@ async def _find_missing_tables(sql_db: object, root: Path, cfg: "Config | None" 
 
     # kapynis_tasks — only when task queue worker is enabled.
     if cfg is not None and cfg.env.use_task_queue_worker:
-        from kapynis.codebase.app.task_queue_worker.model import TaskBase
-        expected.update(TaskBase.metadata.tables.keys())
+        from kapynis.codebase.app.task_queue_worker.model import TaskQueueBase
+        expected.update(TaskQueueBase.metadata.tables.keys())
 
     if not expected:
         return []
