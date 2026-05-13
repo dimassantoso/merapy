@@ -19,7 +19,8 @@ from kapynis.validator.json_schema import JSONSchemaValidator
 from kapynis.utils.redis_locker import RedisLocker
 
 from src.pkg.shared.repository.repository import set_shared_repository
-from src.pkg.shared.usecase.usecase import set_shared_usecase
+{% if use_mongo %}from src.pkg.shared.repository.repository_mongo import set_shared_repository_mongo
+{% endif %}from src.pkg.shared.usecase.usecase import set_shared_usecase
 
 if TYPE_CHECKING:
     from config.config import Config
@@ -71,5 +72,6 @@ async def load_service_configs(cfg: "Config") -> list[Closer]:
     # in pkg.shared.middleware and wire them here.
 
     set_shared_repository(deps)
-    set_shared_usecase(deps)
+{% if use_mongo %}    set_shared_repository_mongo(deps)
+{% endif %}    set_shared_usecase(deps)
     return closers

@@ -1,0 +1,64 @@
+{% if use_mongo %}"""{{ module_pascal }}RepoMongo — Motor (async MongoDB) implementation."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from motor.motor_asyncio import AsyncIOMotorDatabase
+
+from src.internal.modules.{{ module_snake }}.domain import Filter{{ module_pascal }}
+from src.pkg.shared.domain.{{ module_snake }} import {{ module_pascal }}
+
+
+class {{ module_pascal }}RepoMongo:
+    """MongoDB implementation of {{ module_pascal }}Repository using Motor."""
+
+    COLLECTION = "{{ module_snake }}s"
+
+    def __init__(self, read_db: AsyncIOMotorDatabase, write_db: AsyncIOMotorDatabase) -> None:
+        self._read = read_db
+        self._write = write_db
+
+    def _collection(self, write: bool = False) -> Any:
+        db = self._write if write else self._read
+        return db[self.COLLECTION]
+
+    def _build_filter(self, f: Filter{{ module_pascal }}) -> dict:
+        query: dict = {}
+        if f.search:
+            query["name"] = {"$regex": f.search, "$options": "i"}
+        return query
+
+    async def fetch_all(self, f: Filter{{ module_pascal }}) -> list[{{ module_pascal }}]:
+        query = self._build_filter(f)
+        sort = [("created_at", -1 if f.sort.upper() == "DESC" else 1)]
+        cursor = self._collection().find(query).sort(sort)
+        if not f.show_all:
+            cursor = cursor.skip(f.offset).limit(f.limit)
+        docs = await cursor.to_list(length=None)
+        return [{{ module_pascal }}.from_mongo(d) for d in docs]
+
+    async def count(self, f: Filter{{ module_pascal }}) -> int:
+        return await self._collection().count_documents(self._build_filter(f))
+
+    async def find(self, id_: int) -> {{ module_pascal }} | None:
+        doc = await self._collection().find_one({"_id": id_})
+        return {{ module_pascal }}.from_mongo(doc) if doc else None
+
+    async def save(self, entity: {{ module_pascal }}) -> {{ module_pascal }}:
+        doc = entity.to_mongo()
+        if entity.id:
+            await self._collection(write=True).replace_one(
+                {"_id": entity.id}, doc, upsert=True
+            )
+        else:
+            result = await self._collection(write=True).insert_one(doc)
+            entity.id = result.inserted_id
+        return entity
+
+    async def update(self, entity: {{ module_pascal }}) -> {{ module_pascal }}:
+        return await self.save(entity)
+
+    async def delete(self, id_: int) -> None:
+        await self._collection(write=True).delete_one({"_id": id_})
+{% endif %}

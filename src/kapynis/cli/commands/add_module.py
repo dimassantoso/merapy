@@ -87,6 +87,8 @@ def add_module(name: str, service_root: Path) -> None:
     _inject_service_markers(service_root, snake, pascal)
     if "graphql" in server_handlers:
         _inject_graphql_schema_markers(service_root, snake, pascal)
+    if "mongo" in dependencies:
+        _inject_repository_mongo_markers(service_root, snake, pascal)
 
     # Update kapynis.json modules list.
     if cfg:
@@ -155,3 +157,15 @@ def _inject_graphql_schema_markers(root: Path, snake: str, pascal: str) -> None:
     _inject(f, "queryRoot", f"{snake}: {pascal}QueryResolver @auth(authType: BEARER)")
     _inject(f, "mutationRoot", f"{snake}: {pascal}MutationResolver @auth(authType: BEARER)")
     _inject(f, "subscriptionRoot", f"{snake}: {pascal}SubscriptionResolver")
+
+
+def _inject_repository_mongo_markers(root: Path, snake: str, pascal: str) -> None:
+    """Inject mongo repository markers into pkg/shared/repository/repository_mongo.py."""
+    f = _src(root) / "pkg" / "shared" / "repository" / "repository_mongo.py"
+    if not f.exists():
+        return
+    inject(f, "repositoryMongoImport", f"from src.internal.modules.{snake}.repository import {pascal}Repository, {pascal}RepoMongo")
+    inject(f, "repositoryMongoMethod", f"def {snake}_repo(self) -> {pascal}Repository: ...")
+    inject(f, "repositoryMongoField", f"_{snake}_repo: {pascal}Repository")
+    inject(f, "repositoryMongoConstructor", f"impl._{snake}_repo = {pascal}RepoMongo(read_db, write_db)")
+    inject(f, "repositoryMongoImplementation", f"def {snake}_repo(self) -> {pascal}Repository:\n    return self._{snake}_repo")

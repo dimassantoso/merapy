@@ -50,12 +50,30 @@ class TaskQueueWorker:
             return
 
         sql_db = get_dependency().sql_db()
+        mongo_db = get_dependency().mongo_db()
+
+        # Mirror candi's persistent priority: Mongo → SQL → error.
+        # NOTE: Mongo persistent is not yet implemented in kapynis — falls back to SQL.
+        # TODO: implement MongoPersistent when motor-based session adapter is ready.
+        if mongo_db is not None and sql_db is None:
+            logger.warning(
+                "task_queue.mongo_not_supported",
+                message=(
+                    "Task queue worker prefers MongoDB (like candi) but kapynis "
+                    "currently only supports SQL persistent. "
+                    "Add SQL_DSN_WRITE to .env to enable the task queue."
+                ),
+            )
+            await self._stop.wait()
+            return
+
         if sql_db is None:
-            logger.error("task_queue.no_sql_db")
+            logger.error("task_queue.no_persistent — requires SQL_DSN_WRITE in .env")
             await self._stop.wait()
             return
 
         self._session_factory = sql_db.session_factory()
+        logger.info("task_queue.persistent", backend="sql")
         self._semaphore = asyncio.Semaphore(env.max_workers)
         for module, entry in entries:
             self._handlers.setdefault(entry.pattern, []).append((module, entry))

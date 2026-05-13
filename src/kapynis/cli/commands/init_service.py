@@ -192,6 +192,7 @@ def init_service() -> None:
         _inject_service_markers,
         _inject_usecase_markers,
         _inject_graphql_schema_markers,
+        _inject_repository_mongo_markers,
     )
     for module_snake in modules:
         module_pascal = to_pascal(module_snake)
@@ -208,6 +209,8 @@ def init_service() -> None:
         _inject_service_markers(target, module_snake, module_pascal)
         if "graphql" in server_handlers:
             _inject_graphql_schema_markers(target, module_snake, module_pascal)
+        if "mongo" in dependencies:
+            _inject_repository_mongo_markers(target, module_snake, module_pascal)
 
     # Save kapynis.json — mirrors candi.json; read by add-module / add-handler.
     config_data = {
