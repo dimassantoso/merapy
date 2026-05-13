@@ -10,7 +10,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
-from sqlalchemy import select, update, text
+from sqlalchemy import select, update, text, func
 
 from kapynis.codebase.app._worker_base import collect_handlers
 from kapynis.codebase.app.task_queue_worker.model import (
@@ -44,52 +44,56 @@ class TaskQueueWorker:
     async def serve(self) -> None:
         env = self._service.config().env
         entries = collect_handlers(self._service, Worker.TASK_QUEUE)
-        if not entries:
-            logger.info("task_queue.no_handlers")
-            await self._stop.wait()
-            return
 
-        sql_db = get_dependency().sql_db()
-        mongo_db = get_dependency().mongo_db()
-
-        # Mirror candi's persistent priority: Mongo → SQL → error.
-        # NOTE: Mongo persistent is not yet implemented in kapynis — falls back to SQL.
-        # TODO: implement MongoPersistent when motor-based session adapter is ready.
-        if mongo_db is not None and sql_db is None:
-            logger.warning(
-                "task_queue.mongo_not_supported",
-                message=(
-                    "Task queue worker prefers MongoDB (like candi) but kapynis "
-                    "currently only supports SQL persistent. "
-                    "Add SQL_DSN_WRITE to .env to enable the task queue."
-                ),
-            )
-            await self._stop.wait()
-            return
-
-        if sql_db is None:
-            logger.error("task_queue.no_persistent — requires SQL_DSN_WRITE in .env")
-            await self._stop.wait()
-            return
-
-        self._session_factory = sql_db.session_factory()
-        logger.info("task_queue.persistent", backend="sql")
-        self._semaphore = asyncio.Semaphore(env.max_workers)
-        for module, entry in entries:
-            self._handlers.setdefault(entry.pattern, []).append((module, entry))
-
-        logger.info(
-            "task_queue.handlers",
-            names=list(self._handlers.keys()),
-            dashboard=f"http://localhost:{env.task_queue_dashboard_port}",
-        )
-
-        # Start the dashboard server alongside the poll loop.
+        # Start the dashboard immediately — always reachable on TASK_QUEUE_DASHBOARD_PORT
+        # regardless of whether tables exist or handlers are registered.
         from kapynis.codebase.app.task_queue_worker.dashboard import TaskQueueDashboard
         dashboard = TaskQueueDashboard(self, port=env.task_queue_dashboard_port)
         dashboard_task = asyncio.create_task(dashboard.serve(), name="task-queue-dashboard")
 
         try:
+            if not entries:
+                logger.info("task_queue.no_handlers")
+                await self._stop.wait()
+                return
+
+            sql_db = get_dependency().sql_db()
+            mongo_db = get_dependency().mongo_db()
+
+            # Mirror candi's persistent priority: Mongo → SQL → error.
+            # NOTE: Mongo persistent is not yet implemented — falls back to SQL.
+            if mongo_db is not None and sql_db is None:
+                logger.warning(
+                    "task_queue.mongo_not_supported",
+                    message=(
+                        "Task queue worker prefers MongoDB (like candi) but kapynis "
+                        "currently only supports SQL persistent. "
+                        "Add SQL_DSN_WRITE to .env to enable the task queue."
+                    ),
+                )
+                await self._stop.wait()
+                return
+
+            if sql_db is None:
+                logger.error("task_queue.no_persistent — requires SQL_DSN_WRITE in .env")
+                await self._stop.wait()
+                return
+
+            self._session_factory = sql_db.session_factory()
+            logger.info("task_queue.persistent", backend="sql")
+            self._semaphore = asyncio.Semaphore(env.max_workers)
+            for module, entry in entries:
+                self._handlers.setdefault(entry.pattern, []).append((module, entry))
+
+            logger.info(
+                "task_queue.handlers",
+                names=list(self._handlers.keys()),
+                dashboard=f"http://localhost:{env.task_queue_dashboard_port}",
+            )
+
+            # Ensure a summary row exists for every registered task (mirrors candi's prepare()).
+            await self._init_summaries()
+
             while not self._stop.is_set():
                 try:
                     processed = await self._tick()
@@ -108,6 +112,49 @@ class TaskQueueWorker:
         finally:
             dashboard_task.cancel()
             await asyncio.gather(dashboard_task, return_exceptions=True)
+
+    async def _init_summaries(self) -> None:
+        """Ensure a summary row exists for every registered task.
+
+        Mirrors candi's prepare() which calls UpdateSummary for each task.
+        This makes task names visible in the dashboard immediately at startup.
+        """
+        from kapynis.codebase.app.task_queue_worker.model import Job, JobSummary, JobStatus
+        async with self._session_factory() as session:  # type: ignore[misc]
+            async with session.begin():
+                for task_name in self._handlers.keys():
+                    # Count current jobs per status for this task.
+                    counts: dict[str, int] = {}
+                    for status in [JobStatus.QUEUEING, JobStatus.RETRYING,
+                                   JobStatus.SUCCESS, JobStatus.FAILURE, JobStatus.STOPPED]:
+                        cnt = int(
+                            (await session.execute(
+                                select(func.count()).where(
+                                    Job.task_name == task_name,
+                                    Job.status == status,
+                                )
+                            )).scalar() or 0
+                        )
+                        counts[status] = cnt
+
+                    # Upsert summary row.
+                    existing = await session.get(JobSummary, task_name)
+                    if existing is None:
+                        session.add(JobSummary(
+                            id=task_name,
+                            queueing=counts[JobStatus.QUEUEING],
+                            retrying=counts[JobStatus.RETRYING],
+                            success=counts[JobStatus.SUCCESS],
+                            failure=counts[JobStatus.FAILURE],
+                            stopped=counts[JobStatus.STOPPED],
+                        ))
+                    else:
+                        existing.queueing = counts[JobStatus.QUEUEING]
+                        existing.retrying = counts[JobStatus.RETRYING]
+                        existing.success = counts[JobStatus.SUCCESS]
+                        existing.failure = counts[JobStatus.FAILURE]
+                        existing.stopped = counts[JobStatus.STOPPED]
+        logger.info("task_queue.summaries_initialized", tasks=list(self._handlers.keys()))
 
     async def _tick(self) -> int:
         assert self._session_factory is not None

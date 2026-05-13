@@ -164,96 +164,201 @@ async def _query_jobs(
 # GraphQL schema
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# GraphQL schema — module-level worker reference so strawberry can resolve types
+# ---------------------------------------------------------------------------
+
+_worker_ref: "TaskQueueWorker | None" = None  # set by _build_schema
+
+
+@strawberry.type
+class TaskDetailResolver:
+    failure: int = 0
+    retrying: int = 0
+    success: int = 0
+    queueing: int = 0
+    stopped: int = 0
+
+
+@strawberry.type
+class TaskResolver:
+    name: str
+    module_name: str
+    total_jobs: int
+    is_loading: bool = False
+    detail: TaskDetailResolver = strawberry.field(default_factory=TaskDetailResolver)
+
+
+async def _get_all_task_impl() -> list[TaskResolver]:
+    """Fetch task summaries for all registered handlers."""
+    from kapynis.codebase.app.task_queue_worker.model import JobSummary
+    w = _worker_ref
+    if w is None or not w._handlers:
+        return []
+    tasks: list[TaskResolver] = []
+    if w._session_factory is None:
+        for name in w._handlers.keys():
+            tasks.append(TaskResolver(name=name, module_name=name, total_jobs=0,
+                                      detail=TaskDetailResolver()))
+        return tasks
+    async with w._session_factory() as session:  # type: ignore[misc]
+        rows = list((await session.execute(select(JobSummary))).scalars())
+    summary_map = {r.id: r for r in rows}
+    for name in w._handlers.keys():
+        s = summary_map.get(name)
+        detail = TaskDetailResolver(
+            failure=s.failure if s else 0,
+            retrying=s.retrying if s else 0,
+            success=s.success if s else 0,
+            queueing=s.queueing if s else 0,
+            stopped=s.stopped if s else 0,
+        )
+        total = detail.failure + detail.retrying + detail.success + detail.queueing + detail.stopped
+        tasks.append(TaskResolver(name=name, module_name=name, total_jobs=total, detail=detail))
+    return tasks
+
+
+@strawberry.type
+class _Query:
+    @strawberry.field
+    async def get_all_job(self, filter: Optional[GetAllJobInputResolver] = None) -> JobListResolver:
+        w = _worker_ref
+        if w is None:
+            return JobListResolver(meta=MetaType(page=1, limit=20, total_pages=0, total_records=0), data=[])
+        return await _query_jobs(w._session_factory, filter or GetAllJobInputResolver())
+
+    @strawberry.field
+    async def get_count_job(self, filter: Optional[GetAllJobInputResolver] = None) -> int:
+        w = _worker_ref
+        if w is None:
+            return 0
+        result = await _query_jobs(w._session_factory, filter or GetAllJobInputResolver())
+        return result.meta.total_records
+
+    @strawberry.field
+    async def get_all_task(self) -> list[TaskResolver]:
+        return await _get_all_task_impl()
+
+
+@strawberry.type
+class _Mutation:
+    @strawberry.mutation
+    async def add_job(self, param: AddJobInputResolver) -> str:
+        from kapynis.codebase.app.task_queue_worker.model import Job, JobStatus
+        w = _worker_ref
+        assert w is not None and w._session_factory is not None
+        async with w._session_factory() as session:  # type: ignore[misc]
+            async with session.begin():
+                job = Job(
+                    task_name=param.task_name,
+                    arguments=param.args,
+                    max_retry=param.max_retry,
+                    status=JobStatus.QUEUEING,
+                    created_at=datetime.now(tz=timezone.utc),
+                    updated_at=datetime.now(tz=timezone.utc),
+                )
+                session.add(job)
+                await session.flush()
+                return job.id
+
+    @strawberry.mutation
+    async def retry_job(self, job_id: str) -> str:
+        from kapynis.codebase.app.task_queue_worker.model import Job, JobStatus
+        w = _worker_ref
+        assert w is not None and w._session_factory is not None
+        async with w._session_factory() as session:  # type: ignore[misc]
+            async with session.begin():
+                await session.execute(
+                    update(Job).where(Job.id == job_id).values(
+                        status=JobStatus.QUEUEING, retries=0, error="",
+                        finished_at=None, updated_at=datetime.now(tz=timezone.utc),
+                    )
+                )
+        return "ok"
+
+    @strawberry.mutation
+    async def stop_job(self, job_id: str) -> str:
+        """Stop a single running/queued job — sets status to STOPPED."""
+        from kapynis.codebase.app.task_queue_worker.model import Job, JobStatus
+        w = _worker_ref
+        assert w is not None and w._session_factory is not None
+        async with w._session_factory() as session:  # type: ignore[misc]
+            async with session.begin():
+                await session.execute(
+                    update(Job).where(Job.id == job_id).values(
+                        status=JobStatus.STOPPED,
+                        updated_at=datetime.now(tz=timezone.utc),
+                    )
+                )
+        return "ok"
+
+    @strawberry.mutation
+    async def stop_all_job(self, task_name: str) -> str:
+        """Stop all QUEUEING and RETRYING jobs for a task — sets them to STOPPED."""
+        from kapynis.codebase.app.task_queue_worker.model import Job, JobStatus
+        w = _worker_ref
+        assert w is not None and w._session_factory is not None
+        async with w._session_factory() as session:  # type: ignore[misc]
+            async with session.begin():
+                await session.execute(
+                    update(Job)
+                    .where(
+                        Job.task_name == task_name,
+                        Job.status.in_([JobStatus.QUEUEING, JobStatus.RETRYING]),
+                    )
+                    .values(status=JobStatus.STOPPED, updated_at=datetime.now(tz=timezone.utc))
+                )
+        return "ok"
+
+    @strawberry.mutation
+    async def retry_all_job(self, filter: FilterMutateJobInputResolver) -> str:
+        from kapynis.codebase.app.task_queue_worker.model import Job, JobStatus
+        w = _worker_ref
+        assert w is not None and w._session_factory is not None
+        async with w._session_factory() as session:  # type: ignore[misc]
+            async with session.begin():
+                stmt = update(Job).where(Job.task_name == filter.task_name).values(
+                    status=JobStatus.QUEUEING, retries=0, error="",
+                    finished_at=None, updated_at=datetime.now(tz=timezone.utc),
+                )
+                if filter.statuses:
+                    stmt = stmt.where(Job.status.in_(filter.statuses))
+                await session.execute(stmt)
+        return "ok"
+
+    @strawberry.mutation
+    async def delete_job(self, job_id: str) -> str:
+        from kapynis.codebase.app.task_queue_worker.model import Job
+        w = _worker_ref
+        assert w is not None and w._session_factory is not None
+        async with w._session_factory() as session:  # type: ignore[misc]
+            async with session.begin():
+                await session.execute(delete(Job).where(Job.id == job_id))
+        return "ok"
+
+    @strawberry.mutation
+    async def clean_job(self, filter: FilterMutateJobInputResolver) -> str:
+        from kapynis.codebase.app.task_queue_worker.model import Job
+        w = _worker_ref
+        assert w is not None and w._session_factory is not None
+        async with w._session_factory() as session:  # type: ignore[misc]
+            async with session.begin():
+                stmt = delete(Job).where(Job.task_name == filter.task_name)
+                if filter.statuses:
+                    stmt = stmt.where(Job.status.in_(filter.statuses))
+                await session.execute(stmt)
+        return "ok"
+
+
 def _build_schema(worker: "TaskQueueWorker") -> strawberry.Schema:
-
-    @strawberry.type
-    class Query:
-        @strawberry.field
-        async def get_all_job(
-            self, filter: Optional[GetAllJobInputResolver] = None
-        ) -> JobListResolver:
-            return await _query_jobs(worker._session_factory, filter or GetAllJobInputResolver())
-
-        @strawberry.field
-        async def get_count_job(
-            self, filter: Optional[GetAllJobInputResolver] = None
-        ) -> int:
-            result = await _query_jobs(worker._session_factory, filter or GetAllJobInputResolver())
-            return result.meta.total_records
-
-    @strawberry.type
-    class Mutation:
-        @strawberry.mutation
-        async def add_job(self, param: AddJobInputResolver) -> str:
-            from kapynis.codebase.app.task_queue_worker.model import Job, JobStatus
-            async with worker._session_factory() as session:  # type: ignore[misc]
-                async with session.begin():
-                    job = Job(
-                        task_name=param.task_name,
-                        arguments=param.args,
-                        max_retry=param.max_retry,
-                        status=JobStatus.QUEUEING,
-                        created_at=datetime.now(tz=timezone.utc),
-                        updated_at=datetime.now(tz=timezone.utc),
-                    )
-                    session.add(job)
-                    await session.flush()
-                    return job.id
-
-        @strawberry.mutation
-        async def retry_job(self, job_id: str) -> str:
-            from kapynis.codebase.app.task_queue_worker.model import Job, JobStatus
-            async with worker._session_factory() as session:  # type: ignore[misc]
-                async with session.begin():
-                    await session.execute(
-                        update(Job).where(Job.id == job_id).values(
-                            status=JobStatus.QUEUEING,
-                            retries=0,
-                            error="",
-                            finished_at=None,
-                            updated_at=datetime.now(tz=timezone.utc),
-                        )
-                    )
-            return "ok"
-
-        @strawberry.mutation
-        async def retry_all_job(self, filter: FilterMutateJobInputResolver) -> str:
-            from kapynis.codebase.app.task_queue_worker.model import Job, JobStatus
-            async with worker._session_factory() as session:  # type: ignore[misc]
-                async with session.begin():
-                    stmt = update(Job).where(Job.task_name == filter.task_name).values(
-                        status=JobStatus.QUEUEING,
-                        retries=0,
-                        error="",
-                        finished_at=None,
-                        updated_at=datetime.now(tz=timezone.utc),
-                    )
-                    if filter.statuses:
-                        stmt = stmt.where(Job.status.in_(filter.statuses))
-                    await session.execute(stmt)
-            return "ok"
-
-        @strawberry.mutation
-        async def delete_job(self, job_id: str) -> str:
-            from kapynis.codebase.app.task_queue_worker.model import Job
-            async with worker._session_factory() as session:  # type: ignore[misc]
-                async with session.begin():
-                    await session.execute(delete(Job).where(Job.id == job_id))
-            return "ok"
-
-        @strawberry.mutation
-        async def clean_job(self, filter: FilterMutateJobInputResolver) -> str:
-            from kapynis.codebase.app.task_queue_worker.model import Job
-            async with worker._session_factory() as session:  # type: ignore[misc]
-                async with session.begin():
-                    stmt = delete(Job).where(Job.task_name == filter.task_name)
-                    if filter.statuses:
-                        stmt = stmt.where(Job.status.in_(filter.statuses))
-                    await session.execute(stmt)
-            return "ok"
-
-    return strawberry.Schema(query=Query, mutation=Mutation)
-
+    global _worker_ref
+    _worker_ref = worker
+    from strawberry.schema.config import StrawberryConfig
+    return strawberry.Schema(
+        query=_Query,
+        mutation=_Mutation,
+        config=StrawberryConfig(auto_camel_case=False),
+    )
 
 # ---------------------------------------------------------------------------
 # Static file discovery
@@ -316,8 +421,8 @@ class TaskQueueDashboard:
             if next_static.is_dir():
                 app.mount("/_next", StaticFiles(directory=str(next_static)), name="next-static")
 
-            @app.get("/", include_in_schema=False)
-            @app.get("/{path:path}", include_in_schema=False)
+            @app.get("/", include_in_schema=False, response_model=None)
+            @app.get("/{path:path}", include_in_schema=False, response_model=None)
             async def serve_spa(path: str = "") -> FileResponse | HTMLResponse:
                 # Try exact file first
                 candidate = static_dir / path
@@ -333,7 +438,7 @@ class TaskQueueDashboard:
                     return FileResponse(str(index))
                 return HTMLResponse("<h1>Dashboard not found</h1>", status_code=404)
         else:
-            @app.get("/", include_in_schema=False)
+            @app.get("/", include_in_schema=False, response_model=None)
             async def health() -> dict[str, str]:
                 return {
                     "status": "ok",

@@ -1,29 +1,36 @@
-.PHONY: run test lint typecheck migration migration-create proto
+PYTHON := .venv/bin/python
+PIP    := .venv/bin/pip
+
+.PHONY: run test lint typecheck migration migration-create migration-down install{% if use_grpc %} proto{% endif %}
+
+install:
+	python3 -m venv .venv
+	$(PIP) install -e ".[dev]"
 
 run:
-	python main.py
+	$(PYTHON) main.py
 
 test:
-	pytest -v --tb=short
+	.venv/bin/pytest -v --tb=short
 
 lint:
-	ruff check src tests
+	.venv/bin/ruff check src tests
 
 typecheck:
-	mypy src
+	.venv/bin/mypy src
 
 migration:
-	alembic upgrade head
+	.venv/bin/alembic upgrade head
 
 migration-create:
 	@test -n "$(name)" || (echo "usage: make migration-create name=<change>"; exit 1)
-	alembic revision --autogenerate -m "$(name)"
+	.venv/bin/alembic revision --autogenerate -m "$(name)"
 
 migration-down:
-	alembic downgrade -1
+	.venv/bin/alembic downgrade -1
 
 {% if use_grpc %}proto:
-	@find api/proto -name '*.proto' | xargs -I{} python -m grpc_tools.protoc \
+	@find api/proto -name '*.proto' | xargs -I{} $(PYTHON) -m grpc_tools.protoc \
 		-I api/proto \
 		--python_out=src/proto \
 		--grpc_python_out=src/proto \
