@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import aio_pika
@@ -81,6 +82,10 @@ async def init_rabbitmq_broker(env: Env) -> RabbitMQBroker | None:
     if not env.rabbitmq.broker:
         return None
     broker = RabbitMQBroker(env.rabbitmq.broker, env.rabbitmq.exchange_name)
-    await broker.start()
+    try:
+        await asyncio.wait_for(broker.start(), timeout=10.0)
+    except (asyncio.TimeoutError, Exception) as exc:
+        logger.error("rabbitmq.connect_failed", error=str(exc), url=env.rabbitmq.broker)
+        return None
     logger.info("rabbitmq.connected", url=env.rabbitmq.broker)
     return broker

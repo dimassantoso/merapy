@@ -51,7 +51,7 @@ class RedisWorker:
         for module, entry in entries:
             self._handlers.setdefault(entry.pattern, []).append((module, entry))
 
-        self._semaphore = asyncio.Semaphore(env.max_goroutines)
+        self._semaphore = asyncio.Semaphore(env.max_workers)
         client = pool.read()
         self._pubsub = client.pubsub()
         channels = [p for p in self._handlers if not p.endswith("*")]

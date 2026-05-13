@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from aiokafka import AIOKafkaProducer
@@ -71,6 +72,10 @@ async def init_kafka_broker(env: Env) -> KafkaBroker | None:
     if not env.kafka.brokers:
         return None
     broker = KafkaBroker(env.kafka.brokers, env.kafka.client_id)
-    await broker.start()
+    try:
+        await asyncio.wait_for(broker.start(), timeout=10.0)
+    except (asyncio.TimeoutError, Exception) as exc:
+        logger.error("kafka.connect_failed", error=str(exc), brokers=env.kafka.brokers)
+        return None
     logger.info("kafka.connected", brokers=env.kafka.brokers)
     return broker

@@ -59,7 +59,7 @@ class CronWorker:
 
     async def serve(self) -> None:
         env = self._service.config().env
-        self._semaphore = asyncio.Semaphore(env.max_goroutines)
+        self._semaphore = asyncio.Semaphore(env.max_workers)
         entries = collect_handlers(self._service, Worker.SCHEDULER)
         if not entries:
             logger.info("cron.no_handlers")

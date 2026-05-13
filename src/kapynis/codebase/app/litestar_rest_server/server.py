@@ -82,7 +82,8 @@ class LitestarRESTServer:
     async def serve(self) -> None:
         env = self._service.config().env
         config = uvicorn.Config(
-            self._app, host="0.0.0.0", port=env.http_port, log_config=None, access_log=False
+            self._app, host="0.0.0.0", port=env.http_port, log_config=None, access_log=False,
+            lifespan="off"
         )
         self._server = uvicorn.Server(config)
         logger.info("litestar.serving", port=env.http_port)

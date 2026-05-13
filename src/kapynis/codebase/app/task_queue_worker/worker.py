@@ -50,7 +50,7 @@ class TaskQueueWorker:
             return
 
         self._session_factory = sql_db.session_factory()
-        self._semaphore = asyncio.Semaphore(env.max_goroutines)
+        self._semaphore = asyncio.Semaphore(env.max_workers)
         for module, entry in entries:
             self._handlers.setdefault(entry.pattern, []).append((module, entry))
 

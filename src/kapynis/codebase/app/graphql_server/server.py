@@ -79,7 +79,7 @@ class GraphQLServer:
         env = self._service.config().env
         # Use http_port + 100 to avoid clash with REST. Override via env if needed.
         port = env.http_port + 100
-        config = uvicorn.Config(self._app, host="0.0.0.0", port=port, log_config=None, access_log=False)
+        config = uvicorn.Config(self._app, host="0.0.0.0", port=port, log_config=None, access_log=False, lifespan="off")
         self._server = uvicorn.Server(config)
         logger.info("graphql.serving", port=port)
         await self._server.serve()

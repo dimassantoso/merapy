@@ -2,7 +2,7 @@
 
 One process-wide ``AIOKafkaConsumer`` subscribes to all topics registered
 by any module's Kafka handler. Messages are dispatched to the handler whose
-pattern equals the topic name, with concurrency capped by ``MAX_GOROUTINES``.
+pattern equals the topic name, with concurrency capped by ``MAX_WORKERS``.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ class KafkaWorker:
         for module, entry in entries:
             topic_handlers.setdefault(entry.pattern, []).append((module, entry))
 
-        self._semaphore = asyncio.Semaphore(env.max_goroutines)
+        self._semaphore = asyncio.Semaphore(env.max_workers)
         self._consumer = AIOKafkaConsumer(
             *topic_handlers.keys(),
             bootstrap_servers=env.kafka.brokers,
@@ -55,7 +55,17 @@ class KafkaWorker:
             client_id=env.kafka.client_id or None,
             enable_auto_commit=False,
         )
-        await self._consumer.start()
+        try:
+            await asyncio.wait_for(self._consumer.start(), timeout=10.0)
+        except (asyncio.TimeoutError, Exception) as exc:
+            logger.error("kafka.connect_failed", error=str(exc), brokers=env.kafka.brokers)
+            try:
+                await self._consumer.stop()
+            except Exception:
+                pass
+            self._consumer = None
+            await self._stop.wait()
+            return
         logger.info("kafka.subscribed", topics=list(topic_handlers.keys()))
 
         try:
@@ -69,8 +79,12 @@ class KafkaWorker:
                 for _tp, msgs in batch.items():
                     for msg in msgs:
                         await self._dispatch(topic_handlers, msg)
-                # Commit if any handler is auto-ack; otherwise leave for handler control.
                 await self._consumer.commit()
+        except asyncio.CancelledError:
+            # Task was cancelled externally — drain then re-raise so the
+            # orchestrator knows the task finished cleanly.
+            logger.info("kafka.cancelled")
+            raise
         finally:
             await self._drain()
 
@@ -84,7 +98,10 @@ class KafkaWorker:
         key = msg.key.decode() if msg.key else ""  # type: ignore[attr-defined]
         body = msg.value or b""  # type: ignore[attr-defined]
         raw_headers = msg.headers or []  # type: ignore[attr-defined]
-        headers = {k: v.decode() if isinstance(v, (bytes, bytearray)) else str(v) for k, v in raw_headers}
+        headers = {
+            k: v.decode() if isinstance(v, (bytes, bytearray)) else str(v)
+            for k, v in raw_headers
+        }
 
         for module, entry in topic_handlers.get(topic, []):
             ctx = EventContext(
@@ -116,12 +133,31 @@ class KafkaWorker:
             logger.exception("kafka.handler_failed", module=module, topic=entry.pattern)
 
     async def _drain(self) -> None:
+        """Drain in-flight dispatch tasks then stop the consumer."""
         if self._dispatch_tasks:
             await asyncio.gather(*self._dispatch_tasks, return_exceptions=True)
             self._dispatch_tasks.clear()
         if self._consumer is not None:
-            await self._consumer.stop()
-            self._consumer = None
+            try:
+                await self._consumer.stop()
+            except Exception:
+                logger.exception("kafka.consumer_stop_failed")
+            finally:
+                self._consumer = None
 
     async def shutdown(self) -> None:
+        """Signal the serve loop to stop and eagerly close the consumer.
+
+        Called by the orchestrator with a deadline. Setting ``_stop`` causes
+        the poll loop to exit on the next iteration. We also stop the consumer
+        directly here so that if ``serve()`` is blocked inside ``getmany``
+        the consumer is closed and the await unblocks immediately.
+        """
         self._stop.set()
+        if self._consumer is not None:
+            try:
+                await self._consumer.stop()
+            except Exception:
+                pass
+            finally:
+                self._consumer = None

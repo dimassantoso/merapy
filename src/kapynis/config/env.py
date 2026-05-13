@@ -20,7 +20,6 @@ class KafkaEnv(BaseSettings):
     brokers: list[str] = Field(default_factory=list)
     client_id: str = ""
     consumer_group: str = ""
-    client_version: str = ""
 
 
 class RabbitMQEnv(BaseSettings):
@@ -102,8 +101,8 @@ class Env(BaseSettings):
     cors_allow_credentials: bool = Field(default=True, alias="CORS_ALLOW_CREDENTIALS")
 
     # Limits
-    max_goroutines: int = Field(default=10, alias="MAX_GOROUTINES")
-    """Per-worker concurrency cap (asyncio.Semaphore). Name kept for parity."""
+    max_workers: int = Field(default=10, alias="MAX_WORKERS")
+    """Per-worker concurrency cap (asyncio.Semaphore)."""
 
     # Brokers (nested env vars via KafkaEnv / RabbitMQEnv)
     kafka: KafkaEnv = Field(default_factory=KafkaEnv)

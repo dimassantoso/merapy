@@ -49,10 +49,17 @@ class RabbitMQWorker:
             await self._stop.wait()
             return
 
-        self._semaphore = asyncio.Semaphore(env.max_goroutines)
-        self._connection = await aio_pika.connect_robust(env.rabbitmq.broker)
+        self._semaphore = asyncio.Semaphore(env.max_workers)
+        try:
+            self._connection = await asyncio.wait_for(
+                aio_pika.connect_robust(env.rabbitmq.broker), timeout=10.0
+            )
+        except (asyncio.TimeoutError, Exception) as exc:
+            logger.error("rabbitmq.connect_failed", error=str(exc), broker=env.rabbitmq.broker)
+            await self._stop.wait()
+            return
         self._channel = await self._connection.channel()
-        await self._channel.set_qos(prefetch_count=env.max_goroutines)
+        await self._channel.set_qos(prefetch_count=env.max_workers)
         logger.info(
             "rabbitmq.connected",
             broker=env.rabbitmq.broker,
