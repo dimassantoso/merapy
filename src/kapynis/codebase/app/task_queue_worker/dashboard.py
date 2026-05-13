@@ -189,6 +189,23 @@ class TaskResolver:
     detail: TaskDetailResolver = strawberry.field(default_factory=TaskDetailResolver)
 
 
+@strawberry.type
+class MetaTaskResolver:
+    page: int
+    limit: int
+    total_pages: int
+    total_records: int
+    is_close_session: bool = False
+    total_client_subscriber: int = 0
+    client_id: str = ""
+
+
+@strawberry.type
+class TaskListResolver:
+    meta: MetaTaskResolver
+    data: list[TaskResolver]
+
+
 async def _get_all_task_impl() -> list[TaskResolver]:
     """Fetch task summaries for all registered handlers."""
     from kapynis.codebase.app.task_queue_worker.model import JobSummary
@@ -350,6 +367,54 @@ class _Mutation:
         return "ok"
 
 
+@strawberry.type
+class _Subscription:
+    @strawberry.subscription
+    async def listen_task_dashboard(
+        self,
+        page: int = 1,
+        limit: int = 10,
+        search: Optional[str] = None,
+    ) -> AsyncGenerator[TaskListResolver, None]:
+        """Push task summary every 2 seconds — mirrors candi's listen_task_dashboard."""
+        while True:
+            tasks = await _get_all_task_impl()
+            # Apply search filter
+            if search:
+                tasks = [t for t in tasks if search.lower() in t.name.lower()]
+            total = len(tasks)
+            offset = (page - 1) * limit
+            paged = tasks[offset: offset + limit]
+            yield TaskListResolver(
+                meta=MetaTaskResolver(
+                    page=page,
+                    limit=limit,
+                    total_pages=max(1, (total + limit - 1) // limit),
+                    total_records=total,
+                ),
+                data=paged,
+            )
+            await asyncio.sleep(2)
+
+    @strawberry.subscription
+    async def listen_all_job(
+        self,
+        filter: Optional[GetAllJobInputResolver] = None,
+    ) -> AsyncGenerator[JobListResolver, None]:
+        """Push job list every 2 seconds — mirrors candi's listen_all_job."""
+        while True:
+            w = _worker_ref
+            if w is None or w._session_factory is None:
+                yield JobListResolver(
+                    meta=MetaType(page=1, limit=20, total_pages=0, total_records=0),
+                    data=[],
+                )
+            else:
+                result = await _query_jobs(w._session_factory, filter or GetAllJobInputResolver())
+                yield result
+            await asyncio.sleep(2)
+
+
 def _build_schema(worker: "TaskQueueWorker") -> strawberry.Schema:
     global _worker_ref
     _worker_ref = worker
@@ -357,6 +422,7 @@ def _build_schema(worker: "TaskQueueWorker") -> strawberry.Schema:
     return strawberry.Schema(
         query=_Query,
         mutation=_Mutation,
+        subscription=_Subscription,
         config=StrawberryConfig(auto_camel_case=False),
     )
 
@@ -409,8 +475,11 @@ class TaskQueueDashboard:
         schema = _build_schema(self._worker)
         app = FastAPI(title="Kapynis Task Queue Dashboard", docs_url=None, redoc_url=None)
 
-        # GraphQL endpoint
-        graphql_router: GraphQLRouter[Any, Any] = GraphQLRouter(schema)
+        # GraphQL endpoint — with WebSocket subscription support
+        graphql_router: GraphQLRouter[Any, Any] = GraphQLRouter(
+            schema,
+            subscription_protocols=["graphql-transport-ws", "graphql-ws"],
+        )
         app.include_router(graphql_router, prefix="/graphql")
 
         # Static dashboard UI
@@ -459,7 +528,8 @@ class TaskQueueDashboard:
             port=self._port,
             log_config=None,
             access_log=False,
-            lifespan="off",
+            lifespan="on",   # subscriptions need lifespan ON for strawberry ws
+            ws="websockets",
         )
         self._server = uvicorn.Server(config)
         await self._server.serve()
