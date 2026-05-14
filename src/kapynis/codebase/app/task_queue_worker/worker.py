@@ -10,7 +10,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
-from sqlalchemy import select, update, text, func
+from sqlalchemy import select, update, func
 
 from kapynis.codebase.app._worker_base import collect_handlers
 from kapynis.codebase.app.task_queue_worker.model import (
@@ -248,7 +248,6 @@ class TaskQueueWorker:
                             error="",
                         )
                     )
-                    await _upsert_summary(session, job.task_name, JobStatus.SUCCESS)
                 elif new_retries >= job.max_retry:
                     await session.execute(
                         update(Job).where(Job.id == job.id).values(
@@ -259,7 +258,6 @@ class TaskQueueWorker:
                             error=str(error),
                         )
                     )
-                    await _upsert_summary(session, job.task_name, JobStatus.FAILURE)
                 else:
                     backoff = timedelta(seconds=min(60, 2**new_retries))
                     await session.execute(
@@ -271,36 +269,14 @@ class TaskQueueWorker:
                             finished_at=None,
                         )
                     )
-                    await _upsert_summary(session, job.task_name, JobStatus.RETRYING)
 
-        # Notify dashboard subscriptions of the state change
-        from kapynis.codebase.app.task_queue_worker.dashboard import _notify_change
+        # Recompute summary from scratch — accurate, no stale increments
+        from kapynis.codebase.app.task_queue_worker.dashboard import _recalc_summary, _notify_change
+        await _recalc_summary(self._session_factory, job.task_name)
         _notify_change()
 
     async def shutdown(self) -> None:
         self._stop.set()
-
-
-async def _upsert_summary(session: object, task_name: str, status: str) -> None:
-    col_map = {
-        JobStatus.SUCCESS: "success",
-        JobStatus.FAILURE: "failure",
-        JobStatus.RETRYING: "retrying",
-        JobStatus.QUEUEING: "queueing",
-        JobStatus.STOPPED: "stopped",
-    }
-    col = col_map.get(status)
-    if not col:
-        return
-    await session.execute(  # type: ignore[attr-defined]
-        text(
-            f"INSERT INTO task_queue_worker_job_summaries (id, {col}) "
-            f"VALUES (:task_name, 1) "
-            f"ON CONFLICT (id) DO UPDATE "
-            f"SET {col} = task_queue_worker_job_summaries.{col} + 1"
-        ),
-        {"task_name": task_name},
-    )
 
 
 def _is_missing_table(exc: Exception) -> bool:
