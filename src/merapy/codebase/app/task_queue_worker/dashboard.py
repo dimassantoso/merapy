@@ -6,7 +6,7 @@ Serves two things on ``TASK_QUEUE_DASHBOARD_PORT`` (default 8080):
 2. ``/``         — Static Next.js dashboard UI (built from merapy-taskqueue-dashboard)
 
 The static files are looked up in this order:
-  a. ``KAPYNIS_DASHBOARD_DIR`` env var (absolute path)
+  a. ``MERAPY_DASHBOARD_DIR`` env var (absolute path)
   b. ``<service_root>/dashboard/`` — user can copy the built ``out/`` folder here
   c. Bundled fallback inside merapy package (if shipped)
 
@@ -546,7 +546,7 @@ def _find_static_dir() -> Path | None:
     Lookup order (mirrors candi's embed.FS approach):
     1. Bundled inside merapy package at dashboard_static/ — populated by
        running `make embed` in merapy-taskqueue-dashboard
-    2. KAPYNIS_DASHBOARD_DIR env var (absolute path override)
+    2. MERAPY_DASHBOARD_DIR env var (absolute path override)
     3. <cwd>/dashboard/ — user manually copies merapy-taskqueue-dashboard/out/ here
     """
     # 1. Bundled inside merapy package (preferred — zero config for users)
@@ -555,7 +555,7 @@ def _find_static_dir() -> Path | None:
         return pkg_dir
 
     # 2. Explicit env override
-    env_dir = os.environ.get("KAPYNIS_DASHBOARD_DIR")
+    env_dir = os.environ.get("MERAPY_DASHBOARD_DIR")
     if env_dir and Path(env_dir).is_dir():
         return Path(env_dir)
 
@@ -583,7 +583,7 @@ class TaskQueueDashboard:
 
     def build_app(self) -> FastAPI:
         schema = _build_schema(self._worker)
-        app = FastAPI(title="Kapynis Task Queue Dashboard", docs_url=None, redoc_url=None)
+        app = FastAPI(title="Merapy Task Queue Dashboard", docs_url=None, redoc_url=None)
 
         # GraphQL endpoint — with WebSocket subscription support
         graphql_router: GraphQLRouter[Any, Any] = GraphQLRouter(
@@ -638,7 +638,7 @@ class TaskQueueDashboard:
                     "graphql": f"http://localhost:{self._port}/graphql",
                     "dashboard": (
                         "Build merapy-taskqueue-dashboard and copy out/ to <service>/dashboard/ "
-                        "or set KAPYNIS_DASHBOARD_DIR env var"
+                        "or set MERAPY_DASHBOARD_DIR env var"
                     ),
                 }
 

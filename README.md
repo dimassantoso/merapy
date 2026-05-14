@@ -326,9 +326,9 @@ Then restart with:
 
 ---
 
-## How kapynis compares to candi
+## How merapyßß compares to candi
 
-| Concept | candi (Go) | kapynis (Python) |
+| Concept | candi (Go) | merapyßß (Python) |
 |---------|-----------|-----------------|
 | Service factory | `factory.ServiceFactory` interface | `ServiceFactory` Protocol |
 | App server factory | `factory.AppServerFactory` | async `serve()` / `shutdown()` / `name` |
