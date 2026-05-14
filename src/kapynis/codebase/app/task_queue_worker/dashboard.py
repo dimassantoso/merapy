@@ -171,16 +171,29 @@ async def _query_jobs(
 _worker_ref: "TaskQueueWorker | None" = None  # set by _build_schema
 
 # Asyncio condition — mutations notify this; subscriptions wait on it.
-# Allows push on change OR 2s timer, whichever comes first.
-_change_condition: asyncio.Condition = asyncio.Condition()
+# Created lazily to ensure it uses the running event loop.
+_change_condition: "asyncio.Condition | None" = None
+
+
+def _get_condition() -> asyncio.Condition:
+    global _change_condition
+    if _change_condition is None:
+        _change_condition = asyncio.Condition()
+    return _change_condition
 
 
 def _notify_change() -> None:
     """Signal all subscriptions that data has changed. Safe to call from any coroutine."""
     async def _do_notify() -> None:
-        async with _change_condition:
-            _change_condition.notify_all()
-    asyncio.ensure_future(_do_notify())
+        cond = _get_condition()
+        async with cond:
+            cond.notify_all()
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.ensure_future(_do_notify())
+    except RuntimeError:
+        pass
 
 
 async def _recalc_summary(session_factory: Any, task_name: str) -> None:
@@ -476,9 +489,10 @@ class _Subscription:
 
         while True:
             # Wait for change notification OR 2s timer — whichever fires first
-            async with _change_condition:
+            cond = _get_condition()
+            async with cond:
                 try:
-                    await asyncio.wait_for(_change_condition.wait(), timeout=2.0)
+                    await asyncio.wait_for(cond.wait(), timeout=2.0)
                 except asyncio.TimeoutError:
                     pass
             yield await _fetch()
@@ -502,9 +516,10 @@ class _Subscription:
         yield await _fetch()
 
         while True:
-            async with _change_condition:
+            cond = _get_condition()
+            async with cond:
                 try:
-                    await asyncio.wait_for(_change_condition.wait(), timeout=2.0)
+                    await asyncio.wait_for(cond.wait(), timeout=2.0)
                 except asyncio.TimeoutError:
                     pass
             yield await _fetch()
