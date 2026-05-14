@@ -1,21 +1,14 @@
 """Persistent task-queue worker.
 
-v1 supports:
+Supports:
 
-* Persisting jobs to SQL (SQLAlchemy).
-* Poll-based job dispatch with retry and backoff.
+* SQL-backed job persistence (SQLAlchemy async).
+* Poll-based dispatch with retry and exponential backoff.
 * Status: QUEUEING / RETRYING / SUCCESS / FAILURE / STOPPED.
-"""* Polling for due jobs.
-* Retry on failure with exponential backoff.
-* Status: pending / running / done / failed.
 
-NOT included in v1 (roadmap):
-
-* GraphQL admin UI.
-* Mongo / Redis backends — SQL only.
-* Cross-process job scheduling primitives beyond polling.
-
-Use Celery / Dramatiq / arq if you need a battle-tested queue.
+Roadmap:
+* Mongo / Redis backends (SQL only for now).
+* Cross-process scheduling primitives beyond polling.
 """
 
 from merapy.codebase.app.task_queue_worker.worker import TaskQueueWorker
