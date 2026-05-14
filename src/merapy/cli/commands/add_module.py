@@ -25,9 +25,9 @@ def _detect_package(service_root: Path) -> str:
     raise click.ClickException("could not parse [project] name from pyproject.toml")
 
 
-def _load_kapynis_json(service_root: Path) -> dict:
-    """Load kapynis.json for server/worker handler flags."""
-    p = service_root / "kapynis.json"
+def _load_merapy_json(service_root: Path) -> dict:
+    """Load merapy.json for server/worker handler flags."""
+    p = service_root / "merapy.json"
     if p.exists():
         return json.loads(p.read_text())
     return {}
@@ -37,7 +37,7 @@ def _src(root: Path) -> Path:
     return root / "src"
 
 
-@click.command(help="Add a new module to an existing kapynis service.")
+@click.command(help="Add a new module to an existing merapy service.")
 @click.argument("name")
 @click.option(
     "--service-root",
@@ -48,7 +48,7 @@ def add_module(name: str, service_root: Path) -> None:
     snake = to_snake(name)
     pascal = to_pascal(name)
     package = _detect_package(service_root)
-    cfg = _load_kapynis_json(service_root)
+    cfg = _load_merapy_json(service_root)
 
     server_handlers: set[str] = set(cfg.get("server_handlers", ["rest"]))
     worker_handlers: set[str] = set(cfg.get("worker_handlers", []))
@@ -90,13 +90,13 @@ def add_module(name: str, service_root: Path) -> None:
     if "mongo" in dependencies:
         _inject_repository_mongo_markers(service_root, snake, pascal)
 
-    # Update kapynis.json modules list.
+    # Update merapy.json modules list.
     if cfg:
         modules: list[str] = cfg.get("modules", [])
         if snake not in modules:
             modules.append(snake)
             cfg["modules"] = modules
-            (service_root / "kapynis.json").write_text(json.dumps(cfg, indent=2) + "\n")
+            (service_root / "merapy.json").write_text(json.dumps(cfg, indent=2) + "\n")
 
     click.echo(f"✓ generated {len(written)} files for module '{snake}'")
     click.echo("  shared usecase + repository + service.py updated via markers")

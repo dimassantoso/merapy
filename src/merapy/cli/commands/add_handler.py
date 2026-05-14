@@ -61,9 +61,9 @@ _FILE_NAME = {
 }
 
 
-def _load_kapynis_json(service_root: Path) -> dict:
-    """Load kapynis.json for service-level context (server/worker flags)."""
-    p = service_root / "kapynis.json"
+def _load_merapy_json(service_root: Path) -> dict:
+    """Load merapy.json for service-level context (server/worker flags)."""
+    p = service_root / "merapy.json"
     if p.exists():
         return json.loads(p.read_text())
     return {}
@@ -101,7 +101,7 @@ def add_handler(module: str, handler_type: str, service_root: Path) -> None:
         )
 
     # Build context — all flags default False; only the requested type is True.
-    cfg = _load_kapynis_json(service_root)
+    cfg = _load_merapy_json(service_root)
     server_handlers: set[str] = set(cfg.get("server_handlers", []))
     worker_handlers: set[str] = set(cfg.get("worker_handlers", []))
 
@@ -131,8 +131,8 @@ def add_handler(module: str, handler_type: str, service_root: Path) -> None:
     # Wire the new handler into module.py.
     _wire_module(service_root, snake, pascal, handler_type)
 
-    # Update kapynis.json so future add-handler calls see the full picture.
-    _update_kapynis_json(service_root, handler_type)
+    # Update merapy.json so future add-handler calls see the full picture.
+    _update_merapy_json(service_root, handler_type)
 
     click.echo(
         f"✓ generated {len(written)} file(s) for '{handler_type}' handler in module '{snake}'"
@@ -159,13 +159,13 @@ def _wire_module(
     # Add import if not already present.
     if import_line not in text:
         # Insert after the last existing delivery import block or after the
-        # kapynis imports block — find a safe insertion point.
+        # merapy imports block — find a safe insertion point.
         lines = text.splitlines(keepends=True)
         insert_at = 0
         for i, line in enumerate(lines):
             if line.startswith("from src.internal.modules.") and ".delivery." in line:
                 insert_at = i + 1
-            elif line.startswith("from kapynis.") or line.startswith("from src."):
+            elif line.startswith("from merapy.") or line.startswith("from src."):
                 insert_at = i + 1
         lines.insert(insert_at, import_line + "\n")
         text = "".join(lines)
@@ -226,9 +226,9 @@ def _wire_module(
     module_py.write_text(text)
 
 
-def _update_kapynis_json(service_root: Path, handler_type: str) -> None:
-    """Add the new handler type to kapynis.json so it's tracked."""
-    p = service_root / "kapynis.json"
+def _update_merapy_json(service_root: Path, handler_type: str) -> None:
+    """Add the new handler type to merapy.json so it's tracked."""
+    p = service_root / "merapy.json"
     if not p.exists():
         return
     data = json.loads(p.read_text())

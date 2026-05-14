@@ -163,7 +163,7 @@ def _build_context(
 # Command
 # ---------------------------------------------------------------------------
 
-@click.command(help="Scaffold a new kapynis service (interactive, mirrors candi -init).")
+@click.command(help="Scaffold a new merapy service (interactive, mirrors candi -init).")
 def init_service() -> None:
     try:
         import os
@@ -212,7 +212,7 @@ def init_service() -> None:
         if "mongo" in dependencies:
             _inject_repository_mongo_markers(target, module_snake, module_pascal)
 
-    # Save kapynis.json — mirrors candi.json; read by add-module / add-handler.
+    # Save merapy.json — mirrors candi.json; read by add-module / add-handler.
     config_data = {
         "service_name": service_name,
         "package": to_snake(service_name),
@@ -221,7 +221,7 @@ def init_service() -> None:
         "worker_handlers": sorted(worker_handlers),
         "dependencies": sorted(dependencies),
     }
-    (target / "kapynis.json").write_text(json.dumps(config_data, indent=2) + "\n")
+    (target / "merapy.json").write_text(json.dumps(config_data, indent=2) + "\n")
 
     click.echo(f"\n\033[32m✓ service '{service_name}' scaffolded at {target}\033[0m")
     click.echo(f"  modules  : {', '.join(modules)}")

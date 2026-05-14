@@ -2,7 +2,7 @@
 
 Table names and column names mirror candi's task_queue_worker SQL schema
 (persistent_sql_tools.go) so the merapy-taskqueue-dashboard can connect
-to either a candi or kapynis service without schema changes.
+to either a candi or merapy service without schema changes.
 """
 
 from __future__ import annotations

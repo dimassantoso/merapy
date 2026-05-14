@@ -1,4 +1,4 @@
-"""kapynis — Python clean-architecture microservice framework.
+"""merapy — Python clean-architecture microservice framework.
 
 Port of the Go candi framework (https://github.com/golangid/candi).
 """

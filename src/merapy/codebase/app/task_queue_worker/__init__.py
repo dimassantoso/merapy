@@ -2,7 +2,7 @@
 
 A simplified port of candi's ``task_queue_worker``. v1 supports:
 
-* Persisting jobs to a ``kapynis_tasks`` table (SQLAlchemy).
+* Persisting jobs to a ``merapy_tasks`` table (SQLAlchemy).
 * Polling for due jobs.
 * Retry on failure with exponential backoff.
 * Status: pending / running / done / failed.

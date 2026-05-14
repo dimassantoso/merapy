@@ -41,7 +41,7 @@ class Env(BaseSettings):
     )
 
     # Service identity
-    service_name: str = Field(default="kapynis-service", alias="SERVICE_NAME")
+    service_name: str = Field(default="merapy-service", alias="SERVICE_NAME")
     environment: Literal["development", "staging", "production"] = Field(
         default="development", alias="ENVIRONMENT"
     )

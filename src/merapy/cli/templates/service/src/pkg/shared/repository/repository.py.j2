@@ -1,6 +1,6 @@
 """Shared SQL repository UOW. Mirrors candi's ``pkg/shared/repository``.
 
-Modules register themselves into this aggregator via ``# @kapynis:*`` markers
+Modules register themselves into this aggregator via ``# @merapy:*`` markers
 that the CLI injects.
 """
 
@@ -11,19 +11,19 @@ from typing import Protocol
 from merapy.codebase.factory.dependency import Dependency
 from merapy.repository.uow import SharedSingleton
 
-# @kapynis:repositoryImport
+# @merapy:repositoryImport
 
 
 class RepoSQL(Protocol):
     """The aggregated repository surface. Each module appends one method."""
 
-    # @kapynis:repositoryMethod
+    # @merapy:repositoryMethod
 
 
 class _RepoSQLImpl:
-    # @kapynis:repositoryField
+    # @merapy:repositoryField
 
-    # @kapynis:repositoryImplementation
+    # @merapy:repositoryImplementation
 
 
 _shared: SharedSingleton[RepoSQL] = SharedSingleton(name="repo_sql")
@@ -35,7 +35,7 @@ def set_shared_repository(deps: Dependency) -> None:
         return
     session_factory = sql_db.session_factory()
     impl = _RepoSQLImpl()
-    # @kapynis:repositoryConstructor
+    # @merapy:repositoryConstructor
     _shared.set(impl)  # type: ignore[arg-type]
 
 

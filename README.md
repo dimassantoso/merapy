@@ -12,7 +12,7 @@ Python clean-architecture microservice framework — a Pythonic port of [candi](
 - **REST adapter is pluggable.** FastAPI by default. Litestar via `REST_FRAMEWORK=litestar`. Module handlers see only the `RESTRouter` Protocol — same code works under both.
 - **Clean architecture by default.** `delivery → usecase → repository → DB` separation enforced by the module template; cross-module calls route through a singleton bridge so there's never a circular import.
 - **Singletons that mirror candi's `sync.Once`** — idempotent, thread-safe, set once at boot.
-- **Code-gen markers** (`# @kapynis:*`) so `merapy add-module` extends the shared usecase / repository / service files without you editing them.
+- **Code-gen markers** (`# @merapy:*`) so `merapy add-module` extends the shared usecase / repository / service files without you editing them.
 - **SQLAlchemy 2.x async + Alembic migrations + Pydantic v2 + structlog + OpenTelemetry** out of the box.
 - **Task Queue dashboard** — built-in GraphQL API + embedded Next.js UI served on `TASK_QUEUE_DASHBOARD_PORT` (default 8080). Open `http://localhost:8080` after `make run`.
 
@@ -124,7 +124,7 @@ Running `kapynis` with no arguments opens the interactive menu.
 | Command | What it does |
 |---------|-------------|
 | `merapy init` | Wizard: service name → modules → server handlers → worker handlers → dependencies. Scaffolds a complete service. |
-| `merapy add-module <name>` | Generates `src/internal/modules/<name>/` (module + domain + usecase + repository + delivery handlers) and injects `# @kapynis:*` markers into shared UOW files. |
+| `merapy add-module <name>` | Generates `src/internal/modules/<name>/` (module + domain + usecase + repository + delivery handlers) and injects `# @merapy:*` markers into shared UOW files. |
 | `merapy add-handler <module> <type>` | Adds a delivery handler (`rest`/`grpc`/`graphql`/`kafka`/`cron`/`redis`/`rabbitmq`/`postgres`/`task_queue`) to an existing module. |
 
 ---
@@ -197,7 +197,7 @@ MAX_WORKERS=10
 my-service/
 ├── api/
 │   ├── graphql/
-│   │   ├── _schema.graphql      ← root schema with @kapynis:queryRoot markers
+│   │   ├── _schema.graphql      ← root schema with @merapy:queryRoot markers
 │   │   ├── _common.graphql      ← shared types (FilterListInputResolver, MetaResolver)
 │   │   └── <module>.graphql     ← per-module GraphQL types
 │   ├── jsonschema/
@@ -214,7 +214,7 @@ my-service/
 ├── pyproject.toml
 ├── Makefile
 ├── .env
-├── kapynis.json                 ← scaffolding config (mirrors candi.json)
+├── merapy.json                 ← scaffolding config (mirrors candi.json)
 └── src/
     ├── internal/
     │   ├── service.py           ← ServiceFactory wiring
@@ -336,7 +336,7 @@ Then restart with:
 | Shared UOW | `sync.Once` + `SetSharedUsecase` | `threading.Lock` + `SharedSingleton[T]` |
 | Transaction in context | `RepoSQL.WithTransaction(ctx, fn)` | `with_transaction(session_factory)` via `contextvars` |
 | Response envelope | `wrapper.NewHTTPResponse(...)` | `HTTPResponse.new(...).to_response()` |
-| Code-gen markers | `// @candi:usecaseMethod` | `# @kapynis:usecaseMethod` |
+| Code-gen markers | `// @candi:usecaseMethod` | `# @merapy:usecaseMethod` |
 | Task queue schema | `task_queue_worker_jobs` | same table name + columns |
 | Task queue dashboard | embedded via `embed.FS` | embedded via `package-data` + FastAPI StaticFiles |
 | Migrations | goose | Alembic (autogenerate) |

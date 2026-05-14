@@ -29,7 +29,7 @@ from typing import AsyncIterator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 _session_ctx: ContextVar[AsyncSession | None] = ContextVar(
-    "kapynis_sql_session", default=None
+    "merapy_sql_session", default=None
 )
 
 

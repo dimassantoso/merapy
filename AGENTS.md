@@ -102,7 +102,7 @@ merapy init → generates service/
 
 ## Marker system (code generation)
 
-`# @kapynis:<name>` comments in generated files. `inject(path, marker, code)` appends after marker (idempotent).
+`# @merapy:<name>` comments in generated files. `inject(path, marker, code)` appends after marker (idempotent).
 
 Key markers: `repositoryImport/Method/Field/Constructor/Implementation`, `usecaseImport/Method/Field/Common/Implementation`, `moduleImport/Init`, `queryRoot/mutationRoot/subscriptionRoot`
 

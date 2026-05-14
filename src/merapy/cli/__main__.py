@@ -1,6 +1,6 @@
-"""``kapynis`` CLI entry point.
+"""``merapy`` CLI entry point.
 
-Running ``kapynis`` with no subcommand shows an interactive menu (mirrors
+Running ``merapy`` with no subcommand shows an interactive menu (mirrors
 candi's ``What do you want?`` prompt). Named subcommands also work directly:
 ``merapy init``, ``merapy add-module``, ``merapy add-handler``.
 """
@@ -94,7 +94,7 @@ def _run_add_handler(ctx: click.Context) -> None:
 
 @click.group(
     invoke_without_command=True,
-    help="Scaffold and extend kapynis-based services.",
+    help="Scaffold and extend merapy-based services.",
 )
 @click.version_option(package_name="merapy", prog_name="merapy")
 @click.pass_context

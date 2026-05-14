@@ -16,7 +16,7 @@ from merapy.codebase.interfaces.middleware import (
     TokenValidator,
 )
 
-_TOKEN_CLAIM_KEY = "_kapynis_token_claim"
+_TOKEN_CLAIM_KEY = "_merapy_token_claim"
 _AUTHORIZATION_HEADER = "authorization"
 
 

@@ -94,7 +94,7 @@ async def _find_missing_tables(sql_db: object, root: Path, cfg: "Config | None" 
     except Exception:
         pass
 
-    # kapynis_tasks — only when task queue worker is enabled.
+    # merapy_tasks — only when task queue worker is enabled.
     if cfg is not None and cfg.env.use_task_queue_worker:
         from merapy.codebase.app.task_queue_worker.model import TaskQueueBase
         expected.update(TaskQueueBase.metadata.tables.keys())

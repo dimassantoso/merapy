@@ -7,19 +7,19 @@ from typing import Protocol
 from merapy.codebase.factory.dependency import Dependency
 from merapy.repository.uow import SharedSingleton
 
-# @kapynis:repositoryMongoImport
+# @merapy:repositoryMongoImport
 
 
 class RepoMongo(Protocol):
     """The aggregated MongoDB repository surface. Each module appends one method."""
 
-    # @kapynis:repositoryMongoMethod
+    # @merapy:repositoryMongoMethod
 
 
 class _RepoMongoImpl:
-    # @kapynis:repositoryMongoField
+    # @merapy:repositoryMongoField
 
-    # @kapynis:repositoryMongoImplementation
+    # @merapy:repositoryMongoImplementation
 
 
 _shared: SharedSingleton[RepoMongo] = SharedSingleton(name="repo_mongo")
@@ -32,7 +32,7 @@ def set_shared_repository_mongo(deps: Dependency) -> None:
     read_db = mongo_db.read_db()
     write_db = mongo_db.write_db()
     impl = _RepoMongoImpl()
-    # @kapynis:repositoryMongoConstructor
+    # @merapy:repositoryMongoConstructor
     _shared.set(impl)  # type: ignore[arg-type]
 
 

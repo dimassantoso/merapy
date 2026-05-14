@@ -8,7 +8,7 @@ Serves two things on ``TASK_QUEUE_DASHBOARD_PORT`` (default 8080):
 The static files are looked up in this order:
   a. ``KAPYNIS_DASHBOARD_DIR`` env var (absolute path)
   b. ``<service_root>/dashboard/`` — user can copy the built ``out/`` folder here
-  c. Bundled fallback inside kapynis package (if shipped)
+  c. Bundled fallback inside merapy package (if shipped)
 
 If no static files are found, only the GraphQL API is served and the root
 returns a plain JSON health response.
@@ -544,12 +544,12 @@ def _find_static_dir() -> Path | None:
     """Find the built Next.js dashboard static files.
 
     Lookup order (mirrors candi's embed.FS approach):
-    1. Bundled inside kapynis package at dashboard_static/ — populated by
+    1. Bundled inside merapy package at dashboard_static/ — populated by
        running `make embed` in merapy-taskqueue-dashboard
     2. KAPYNIS_DASHBOARD_DIR env var (absolute path override)
     3. <cwd>/dashboard/ — user manually copies merapy-taskqueue-dashboard/out/ here
     """
-    # 1. Bundled inside kapynis package (preferred — zero config for users)
+    # 1. Bundled inside merapy package (preferred — zero config for users)
     pkg_dir = Path(__file__).parent / "dashboard_static"
     if pkg_dir.is_dir() and (pkg_dir / "index.html").exists():
         return pkg_dir

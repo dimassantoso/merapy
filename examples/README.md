@@ -34,8 +34,8 @@ sample-service/
     │       └── repository/
     └── pkg/shared/
         ├── domain/                   # SQLAlchemy Base + models
-        ├── repository/repository.py  # RepoSQL UOW + @kapynis:* markers
-        └── usecase/usecase.py        # Usecase UOW + @kapynis:* markers
+        ├── repository/repository.py  # RepoSQL UOW + @merapy:* markers
+        └── usecase/usecase.py        # Usecase UOW + @merapy:* markers
 ```
 
 ## Run it

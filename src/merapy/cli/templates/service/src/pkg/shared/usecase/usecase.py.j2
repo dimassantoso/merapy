@@ -10,19 +10,19 @@ from merapy.usecase.singleton import (
     set_common_usecase,
 )
 
-# @kapynis:usecaseImport
+# @merapy:usecaseImport
 
 
 class Usecase(Protocol):
     """Aggregator interface — each module appends one accessor."""
 
-    # @kapynis:usecaseMethod
+    # @merapy:usecaseMethod
 
 
 class _UsecaseImpl:
-    # @kapynis:usecaseField
+    # @merapy:usecaseField
 
-    # @kapynis:usecaseImplementation
+    # @merapy:usecaseImplementation
     pass
 
 
@@ -33,7 +33,7 @@ def set_shared_usecase(deps: Dependency) -> None:
     usecase_inst = _UsecaseImpl()
     set_shared_funcs: list[Any] = []
 
-    # @kapynis:usecaseCommon
+    # @merapy:usecaseCommon
 
     set_common_usecase(usecase_inst)
     for wire in set_shared_funcs:

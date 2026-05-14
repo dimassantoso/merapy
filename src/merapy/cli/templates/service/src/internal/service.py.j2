@@ -20,7 +20,7 @@ from merapy.codebase.factory.dependency import Dependency, get_dependency
 from merapy.codebase.factory.module_factory import ModuleFactory
 from merapy.config.config import Config
 
-# @kapynis:moduleImport
+# @merapy:moduleImport
 
 
 class Service:
@@ -33,7 +33,7 @@ class Service:
         self._deps = get_dependency()
         deps = self._deps
         self._modules: list[ModuleFactory] = [
-            # @kapynis:moduleInit
+            # @merapy:moduleInit
         ]
         self._apps: list[AppServerFactory] = self._build_apps()
 

@@ -1,8 +1,8 @@
 """Marker injection engine.
 
-Replaces a ``# @kapynis:<name>`` comment with::
+Replaces a ``# @merapy:<name>`` comment with::
 
-    # @kapynis:<name>
+    # @merapy:<name>
     <new code>
 
 The marker stays in place so subsequent additions can keep appending. This
@@ -16,7 +16,7 @@ from pathlib import Path
 
 
 def inject(path: Path, marker: str, code: str) -> bool:
-    """Inject ``code`` after the line containing ``# @kapynis:<marker>``.
+    """Inject ``code`` after the line containing ``# @merapy:<marker>``.
 
     Idempotent: if ``code`` is already present somewhere in the file (exact
     string match), this is a no-op and returns ``False``. Otherwise the
@@ -25,7 +25,7 @@ def inject(path: Path, marker: str, code: str) -> bool:
     Raises ``KeyError`` if the marker is not found — surfaces wiring bugs
     instead of silently doing nothing.
     """
-    needle = f"# @kapynis:{marker}"
+    needle = f"# @merapy:{marker}"
     text = path.read_text()
     if code.strip() in text:
         return False
@@ -47,4 +47,4 @@ def inject(path: Path, marker: str, code: str) -> bool:
 
 
 def has_marker(path: Path, marker: str) -> bool:
-    return f"# @kapynis:{marker}" in path.read_text()
+    return f"# @merapy:{marker}" in path.read_text()
