@@ -11,6 +11,9 @@ class Server(StrEnum):
     REST = "rest"
     GRPC = "grpc"
     GRAPHQL = "graphql"
+    # Plugin-defined server types (raw string values accepted via StrEnum subclassing)
+    P2P_TCP = "p2p_tcp"
+    P2P_UDP = "p2p_udp"
 
 
 class Worker(StrEnum):
@@ -20,6 +23,10 @@ class Worker(StrEnum):
     SCHEDULER = "scheduler"
     TASK_QUEUE = "task_queue"
     POSTGRES_LISTENER = "postgres_listener"
+    # Plugin-defined worker types
+    AMAZONSQS = "amazonsqs_broker"
+    GCP_PUBSUB = "gcp_pubsub"
+    STOMP = "stomp_broker"
 
 
 class Module(str):
