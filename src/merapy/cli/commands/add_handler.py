@@ -195,15 +195,28 @@ def _wire_module(
     # Update the return value of the appropriate handler method.
     if handler_type == "rest":
         text = text.replace(
+            "    def rest_handler(self) -> None:\n        return None",
+            f"    def rest_handler(self) -> RESTHandler:\n        return self.{attr}",
+        )
+        # Also handle the case where RESTHandler | None was already there
+        text = text.replace(
             "    def rest_handler(self) -> RESTHandler | None:\n        return None",
             f"    def rest_handler(self) -> RESTHandler | None:\n        return self.{attr}",
         )
     elif handler_type == "grpc":
         text = text.replace(
+            "    def grpc_handler(self) -> None:\n        return None",
+            f"    def grpc_handler(self) -> GRPCHandler:\n        return self.{attr}",
+        )
+        text = text.replace(
             "    def grpc_handler(self) -> GRPCHandler | None:\n        return None",
             f"    def grpc_handler(self) -> GRPCHandler | None:\n        return self.{attr}",
         )
     elif handler_type == "graphql":
+        text = text.replace(
+            "    def graphql_handler(self) -> None:\n        return None",
+            f"    def graphql_handler(self) -> GraphQLHandler:\n        return self.{attr}",
+        )
         text = text.replace(
             "    def graphql_handler(self) -> GraphQLHandler | None:\n        return None",
             f"    def graphql_handler(self) -> GraphQLHandler | None:\n        return self.{attr}",

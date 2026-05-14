@@ -54,6 +54,10 @@ def render_tree(
         if out_path.exists() and not overwrite:
             continue
         tmpl = env.get_template(rel)
-        out_path.write_text(tmpl.render(**context))
+        content = tmpl.render(**context)
+        if not content.strip():
+            # Template rendered empty — handler not selected, skip the file.
+            continue
+        out_path.write_text(content)
         written.append(out_path)
     return written

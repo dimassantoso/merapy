@@ -9,12 +9,12 @@ from __future__ import annotations
 from merapy.codebase.factory.dependency import Dependency
 from merapy.codebase.factory.module_factory import ModuleFactory
 from merapy.codebase.interfaces.handlers import (
-    GraphQLHandler,
-    GRPCHandler,
-    RESTHandler,
-    ServerHandler,
-    WorkerHandler,
-)
+{% if use_graphql %}    GraphQLHandler,
+{% endif %}{% if use_grpc %}    GRPCHandler,
+{% endif %}{% if use_rest %}    RESTHandler,
+{% endif %}    ServerHandler,
+{% if use_kafka or use_cron or use_redis_subscriber or use_rabbitmq or use_postgres_listener or use_task_queue %}    WorkerHandler,
+{% endif %})
 from merapy.codebase.types import Server, Worker
 
 {% if use_rest -%}
@@ -67,15 +67,15 @@ class {{ module_pascal }}Module:
 {% endif -%}
 {% if use_task_queue %}        self._task_queue = {{ module_pascal }}TaskQueueHandler()
 {% endif %}
-    def rest_handler(self) -> RESTHandler | None:
+    def rest_handler(self) -> {% if use_rest %}RESTHandler{% else %}None{% endif %}:
 {% if use_rest %}        return self._rest
 {% else %}        return None
 {% endif %}
-    def grpc_handler(self) -> GRPCHandler | None:
+    def grpc_handler(self) -> {% if use_grpc %}GRPCHandler{% else %}None{% endif %}:
 {% if use_grpc %}        return self._grpc
 {% else %}        return None
 {% endif %}
-    def graphql_handler(self) -> GraphQLHandler | None:
+    def graphql_handler(self) -> {% if use_graphql %}GraphQLHandler{% else %}None{% endif %}:
 {% if use_graphql %}        return self._graphql
 {% else %}        return None
 {% endif %}
