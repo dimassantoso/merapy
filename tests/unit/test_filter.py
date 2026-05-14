@@ -1,5 +1,5 @@
-from kapynis.shared.filter import Filter
-from kapynis.shared.meta import Meta
+from merapy.shared.filter import Filter
+from merapy.shared.meta import Meta
 
 
 def test_filter_offset() -> None:

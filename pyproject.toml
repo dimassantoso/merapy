@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "kapynis"
+name = "merapy"
 version = "0.1.0"
 description = "Python clean-architecture microservice framework — port of Go candi (golangid/candi)."
 readme = "README.md"
@@ -67,13 +67,13 @@ dev = [
 ]
 
 [project.scripts]
-kapynis = "kapynis.cli.__main__:cli"
+merapy = "merapy.cli.__main__:cli"
 
 [project.urls]
-Homepage = "https://github.com/santosodb/kapynis"
-Repository = "https://github.com/santosodb/kapynis"
-"Bug Tracker" = "https://github.com/santosodb/kapynis/issues"
-Changelog = "https://github.com/santosodb/kapynis/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/dimassantoso/merapy"
+Repository = "https://github.com/dimassantoso/merapy"
+"Bug Tracker" = "https://github.com/dimassantoso/merapy/issues"
+Changelog = "https://github.com/dimassantoso/merapy/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -84,9 +84,9 @@ where = ["src"]
 namespaces = false
 
 [tool.setuptools.package-data]
-"kapynis.cli" = ["templates/**/*"]
-"kapynis.codebase.app.task_queue_worker" = ["dashboard_static/**/*"]
-"kapynis" = ["py.typed"]
+"merapy.cli" = ["templates/**/*"]
+"merapy.codebase.app.task_queue_worker" = ["dashboard_static/**/*"]
+"merapy" = ["py.typed"]
 
 [tool.ruff]
 line-length = 100

@@ -1,4 +1,4 @@
-from kapynis.shared.meta import Meta
+from merapy.shared.meta import Meta
 
 
 def test_meta_total_pages_rounds_up() -> None:

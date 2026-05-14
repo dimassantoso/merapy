@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from kapynis.codebase.app.cron_worker.worker import _next_delay_seconds
+from merapy.codebase.app.cron_worker.worker import _next_delay_seconds
 
 
 def test_every_pattern_returns_interval_seconds() -> None:

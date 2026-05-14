@@ -1,6 +1,6 @@
-from kapynis.helper.multi_error import MultiError
-from kapynis.shared.meta import Meta
-from kapynis.wrapper.http_response import HTTPResponse
+from merapy.helper.multi_error import MultiError
+from merapy.shared.meta import Meta
+from merapy.wrapper.http_response import HTTPResponse
 
 
 def test_success_routes_data() -> None:

@@ -1,0 +1,16 @@
+"""Cron worker handler for {{ module_pascal }}."""
+
+from __future__ import annotations
+
+from merapy.codebase.types import EventContext, WorkerHandlerGroup
+from merapy.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class {{ module_pascal }}CronHandler:
+    def mount_handlers(self, group: WorkerHandlerGroup) -> None:
+        group.add("@every 30s", self._tick)
+
+    async def _tick(self, ctx: EventContext) -> None:
+        logger.info("{{ module_snake }}.cron_tick", route=ctx.handler_route)

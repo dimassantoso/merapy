@@ -1,0 +1,101 @@
+{% if use_grpc %}"""gRPC delivery handler for {{ module_pascal }}.
+
+Proto definition: ``api/proto/{{ module_snake }}/{{ module_snake }}.proto``
+
+To generate Python stubs from the proto file, run:
+    python -m grpc_tools.protoc -I api/proto \\
+        --python_out=src/proto \\
+        --grpc_python_out=src/proto \\
+        api/proto/{{ module_snake }}/{{ module_snake }}.proto
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from merapy.logger import get_logger
+from src.pkg.shared.usecase.usecase import get_shared_usecase
+from src.internal.modules.{{ module_snake }}.domain import (
+    Filter{{ module_pascal }},
+    Request{{ module_pascal }},
+)
+
+logger = get_logger(__name__)
+
+# Uncomment once proto stubs are generated:
+# from src.proto.{{ module_snake }}.{{ module_snake }}_pb2 import (
+#     {{ module_pascal }}Model, GetAll{{ module_pascal }}Response, BaseResponse, Meta,
+# )
+# from src.proto.{{ module_snake }}.{{ module_snake }}_pb2_grpc import (
+#     {{ module_pascal }}HandlerServicer,
+#     add_{{ module_pascal }}HandlerServicer_to_server,
+# )
+
+
+class {{ module_pascal }}GRPCHandler:
+    """gRPC handler for {{ module_pascal }}.
+
+    Implements the ``{{ module_pascal }}Handler`` service defined in
+    ``api/proto/{{ module_snake }}/{{ module_snake }}.proto``.
+    """
+
+    def register(self, server: Any) -> None:
+        """Register this servicer with the gRPC server.
+
+        Uncomment once proto stubs are generated:
+            add_{{ module_pascal }}HandlerServicer_to_server(self, server)
+        """
+        logger.info("{{ module_snake }}.grpc_handler_registered")
+
+    async def GetAll{{ module_pascal }}(self, request: Any, context: Any) -> Any:
+        f = Filter{{ module_pascal }}(
+            page=int(request.page or 1),
+            limit=int(request.limit or 10),
+            search=request.search or "",
+        )
+        rows, meta = await get_shared_usecase().{{ module_snake }}().get_all(f)
+        # Build proto response — uncomment once stubs are generated:
+        # resp = GetAll{{ module_pascal }}Response(
+        #     meta=Meta(page=meta.page, limit=meta.limit,
+        #               total_records=meta.total_records, total_pages=meta.total_pages),
+        #     data=[{{ module_pascal }}Model(id=r.id, name=r.name,
+        #                created_at=str(r.created_at), updated_at=str(r.updated_at))
+        #           for r in rows],
+        # )
+        # return resp
+        return rows
+
+    async def GetDetail{{ module_pascal }}(self, request: Any, context: Any) -> Any:
+        row = await get_shared_usecase().{{ module_snake }}().get_detail(int(request.id))
+        if row is None:
+            context.set_code(5)  # NOT_FOUND
+            context.set_details("{{ module_snake }} not found")
+            return None
+        return row
+
+    async def Create{{ module_pascal }}(self, request: Any, context: Any) -> Any:
+        payload = Request{{ module_pascal }}(name=request.name)
+        result = await get_shared_usecase().{{ module_snake }}().create(payload)
+        return result
+
+    async def Update{{ module_pascal }}(self, request: Any, context: Any) -> Any:
+        payload = Request{{ module_pascal }}(name=request.name)
+        try:
+            await get_shared_usecase().{{ module_snake }}().update(int(request.id), payload)
+        except ValueError as e:
+            context.set_code(5)  # NOT_FOUND
+            context.set_details(str(e))
+            return None
+        # return BaseResponse(message="Success")
+        return {"message": "Success"}
+
+    async def Delete{{ module_pascal }}(self, request: Any, context: Any) -> Any:
+        try:
+            await get_shared_usecase().{{ module_snake }}().delete(int(request.id))
+        except Exception as e:
+            context.set_code(9)  # FAILED_PRECONDITION
+            context.set_details(str(e))
+            return None
+        # return BaseResponse(message="Success")
+        return {"message": "Success"}
+{% endif %}

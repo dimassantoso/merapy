@@ -1,0 +1,49 @@
+"""{{ module_pascal }}RepoSQL — SQLAlchemy 2.x async implementation."""
+
+from __future__ import annotations
+
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
+from merapy.repository.base import BaseSQLRepository
+
+from src.internal.modules.{{ module_snake }}.domain import Filter{{ module_pascal }}
+from src.pkg.shared.domain.{{ module_snake }} import {{ module_pascal }}
+
+
+class {{ module_pascal }}RepoSQL(BaseSQLRepository):
+    def __init__(self, session_factory: async_sessionmaker) -> None:
+        super().__init__(session_factory)
+
+    async def fetch_all(self, f: Filter{{ module_pascal }}) -> list[{{ module_pascal }}]:
+        async with self._session() as session:
+            stmt = select({{ module_pascal }}).offset(f.offset).limit(f.limit)
+            result = await session.execute(stmt)
+            return list(result.scalars().all())
+
+    async def count(self, f: Filter{{ module_pascal }}) -> int:
+        async with self._session() as session:
+            result = await session.execute(select(func.count()).select_from({{ module_pascal }}))
+            return int(result.scalar() or 0)
+
+    async def find(self, id_: int) -> {{ module_pascal }} | None:
+        async with self._session() as session:
+            return await session.get({{ module_pascal }}, id_)
+
+    async def save(self, entity: {{ module_pascal }}) -> {{ module_pascal }}:
+        async with self._session() as session:
+            session.add(entity)
+            await session.flush()
+            return entity
+
+    async def update(self, entity: {{ module_pascal }}) -> {{ module_pascal }}:
+        async with self._session() as session:
+            merged = await session.merge(entity)
+            await session.flush()
+            return merged
+
+    async def delete(self, id_: int) -> None:
+        async with self._session() as session:
+            entity = await session.get({{ module_pascal }}, id_)
+            if entity is not None:
+                await session.delete(entity)

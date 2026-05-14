@@ -1,0 +1,61 @@
+"""{{ module_pascal }}Usecase — interface (Protocol) and implementation."""
+
+from __future__ import annotations
+
+from typing import Any, Callable, Protocol
+
+from merapy.codebase.factory.dependency import Dependency
+from merapy.shared.meta import Meta
+from merapy.usecase.base import BaseUsecase
+
+from src.internal.modules.{{ module_snake }}.domain import (
+    Filter{{ module_pascal }},
+    Request{{ module_pascal }},
+    Response{{ module_pascal }},
+)
+from src.pkg.shared.domain.{{ module_snake }} import {{ module_pascal }} as {{ module_pascal }}Model
+from src.pkg.shared.repository.repository import get_shared_repo_sql
+
+
+class {{ module_pascal }}Usecase(Protocol):
+    async def get_all(self, f: Filter{{ module_pascal }}) -> tuple[list[Response{{ module_pascal }}], Meta]: ...
+    async def get_detail(self, id_: int) -> Response{{ module_pascal }} | None: ...
+    async def create(self, payload: Request{{ module_pascal }}) -> Response{{ module_pascal }}: ...
+    async def update(self, id_: int, payload: Request{{ module_pascal }}) -> Response{{ module_pascal }}: ...
+    async def delete(self, id_: int) -> None: ...
+
+
+class _Impl(BaseUsecase):
+    def __init__(self, deps: Dependency) -> None:
+        super().__init__(deps)
+        self._repo = get_shared_repo_sql().{{ module_snake }}_repo()
+
+    async def get_all(self, f: Filter{{ module_pascal }}) -> tuple[list[Response{{ module_pascal }}], Meta]:
+        rows = await self._repo.fetch_all(f)
+        total = await self._repo.count(f)
+        return [Response{{ module_pascal }}.model_validate(r) for r in rows], Meta.new(f.page, f.limit, total)
+
+    async def get_detail(self, id_: int) -> Response{{ module_pascal }} | None:
+        row = await self._repo.find(id_)
+        return Response{{ module_pascal }}.model_validate(row) if row else None
+
+    async def create(self, payload: Request{{ module_pascal }}) -> Response{{ module_pascal }}:
+        entity = {{ module_pascal }}Model(name=payload.name)
+        saved = await self._repo.save(entity)
+        return Response{{ module_pascal }}.model_validate(saved)
+
+    async def update(self, id_: int, payload: Request{{ module_pascal }}) -> Response{{ module_pascal }}:
+        entity = await self._repo.find(id_)
+        if entity is None:
+            raise ValueError(f"{{ module_snake }} with id {id_} not found")
+        entity.name = payload.name
+        updated = await self._repo.update(entity)
+        return Response{{ module_pascal }}.model_validate(updated)
+
+    async def delete(self, id_: int) -> None:
+        await self._repo.delete(id_)
+
+
+def new_{{ module_snake }}_usecase(deps: Dependency) -> tuple[{{ module_pascal }}Usecase, Callable[[Any], None]]:
+    impl = _Impl(deps)
+    return impl, impl._set_shared_usecase  # type: ignore[return-value]

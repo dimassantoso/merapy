@@ -1,0 +1,20 @@
+"""Task queue worker handler for {{ module_pascal }}."""
+
+from __future__ import annotations
+
+from merapy.codebase.types import EventContext, WorkerHandlerGroup
+from merapy.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class {{ module_pascal }}TaskQueueHandler:
+    def mount_handlers(self, group: WorkerHandlerGroup) -> None:
+        group.add("{{ module_snake }}_task", self._handle)
+
+    async def _handle(self, ctx: EventContext) -> None:
+        logger.info(
+            "{{ module_snake }}.task_queue_event",
+            key=ctx.key,
+            body_len=len(ctx.body),
+        )

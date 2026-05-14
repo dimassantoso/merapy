@@ -1,0 +1,77 @@
+"""Boot-time wiring for {{ service_name }}. Mirrors candi's ``configs/config.go``."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from merapy.codebase.factory.dependency import DependencyBuilder
+from merapy.codebase.interfaces import Closer
+from merapy.codebase.types import Worker
+from merapy.config.broker.kafka import init_kafka_broker
+from merapy.config.broker.rabbitmq import init_rabbitmq_broker
+from merapy.config.broker.redis_broker import init_redis_broker
+from merapy.config.database.mongo import init_mongo
+from merapy.config.database.redis import init_redis
+from merapy.config.database.sql import init_sql
+from merapy.middleware.base import MiddlewareBuilder
+from merapy.validator.base import CompositeValidator
+from merapy.validator.json_schema import JSONSchemaValidator
+from merapy.utils.redis_locker import RedisLocker
+
+from src.pkg.shared.repository.repository import set_shared_repository
+{% if use_mongo %}from src.pkg.shared.repository.repository_mongo import set_shared_repository_mongo
+{% endif %}from src.pkg.shared.usecase.usecase import set_shared_usecase
+
+if TYPE_CHECKING:
+    from config.config import Config
+
+
+async def load_service_configs(cfg: "Config") -> list[Closer]:
+    env = cfg.env
+    closers: list[Closer] = []
+
+    sql_db = init_sql(env)
+    if sql_db is not None:
+        closers.append(sql_db)
+    mongo_db = init_mongo(env)
+    if mongo_db is not None:
+        closers.append(mongo_db)
+    redis_pool = init_redis(env)
+    if redis_pool is not None:
+        closers.append(redis_pool)
+
+    builder = DependencyBuilder()
+    if sql_db is not None:
+        builder.with_sql_db(sql_db)
+    if mongo_db is not None:
+        builder.with_mongo_db(mongo_db)
+    if redis_pool is not None:
+        builder.with_redis_pool(redis_pool)
+        builder.with_locker(RedisLocker(redis_pool.write()))
+
+    # Brokers — only built if env is populated.
+    kafka = await init_kafka_broker(env)
+    if kafka is not None:
+        builder.with_broker(Worker.KAFKA, kafka)
+        closers.append(kafka)
+    rabbitmq = await init_rabbitmq_broker(env)
+    if rabbitmq is not None:
+        builder.with_broker(Worker.RABBITMQ, rabbitmq)
+        closers.append(rabbitmq)
+    redis_broker = init_redis_broker(redis_pool)
+    if redis_broker is not None:
+        builder.with_broker(Worker.REDIS_SUBSCRIBER, redis_broker)
+
+    builder.with_validator(
+        CompositeValidator(json_schema=JSONSchemaValidator("api/jsonschema"))
+    )
+
+    deps = builder.build()
+
+    # TODO: implement TokenValidator / BasicAuthValidator / ACLPermissionChecker
+    # in pkg.shared.middleware and wire them here.
+
+    set_shared_repository(deps)
+{% if use_mongo %}    set_shared_repository_mongo(deps)
+{% endif %}    set_shared_usecase(deps)
+    return closers

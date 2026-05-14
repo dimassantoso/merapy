@@ -1,4 +1,4 @@
-from kapynis.helper.multi_error import MultiError
+from merapy.helper.multi_error import MultiError
 
 
 def test_append_and_to_map() -> None:

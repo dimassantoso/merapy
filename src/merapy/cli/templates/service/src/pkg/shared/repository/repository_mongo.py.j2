@@ -1,0 +1,40 @@
+"""Shared MongoDB repository UOW. Mirrors candi's ``pkg/shared/repository/repository_mongo.go``."""
+
+from __future__ import annotations
+
+from typing import Protocol
+
+from merapy.codebase.factory.dependency import Dependency
+from merapy.repository.uow import SharedSingleton
+
+# @kapynis:repositoryMongoImport
+
+
+class RepoMongo(Protocol):
+    """The aggregated MongoDB repository surface. Each module appends one method."""
+
+    # @kapynis:repositoryMongoMethod
+
+
+class _RepoMongoImpl:
+    # @kapynis:repositoryMongoField
+
+    # @kapynis:repositoryMongoImplementation
+
+
+_shared: SharedSingleton[RepoMongo] = SharedSingleton(name="repo_mongo")
+
+
+def set_shared_repository_mongo(deps: Dependency) -> None:
+    mongo_db = deps.mongo_db()
+    if mongo_db is None:
+        return
+    read_db = mongo_db.read_db()
+    write_db = mongo_db.write_db()
+    impl = _RepoMongoImpl()
+    # @kapynis:repositoryMongoConstructor
+    _shared.set(impl)  # type: ignore[arg-type]
+
+
+def get_shared_repo_mongo() -> RepoMongo:
+    return _shared.get()

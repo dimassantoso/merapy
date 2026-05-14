@@ -1,0 +1,29 @@
+"""Entry point for {{ service_name }}."""
+
+from __future__ import annotations
+
+import asyncio
+
+from merapy.codebase.app.app import App
+from merapy.config.config import load_config
+from merapy.config.migration import check_pending_migrations
+from merapy.logger import init_logger
+
+from src.configs.config import load_service_configs
+from src.internal.service import Service
+
+
+async def main() -> None:
+    cfg = load_config()
+    init_logger(service=cfg.env.service_name, debug=cfg.env.debug_mode)
+    await cfg.load(load_service_configs)
+    await check_pending_migrations(cfg)
+    service = Service(cfg)
+    try:
+        await App(service).run()
+    finally:
+        await cfg.shutdown()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

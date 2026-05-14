@@ -1,4 +1,4 @@
-from kapynis.helper.string_case import to_camel, to_kebab, to_pascal, to_snake
+from merapy.helper.string_case import to_camel, to_kebab, to_pascal, to_snake
 
 
 def test_to_snake() -> None:

@@ -5,7 +5,7 @@
 ## What this is
 
 **kapynis** — Python microservice framework porting Go [candi](https://github.com/golangid/candi).
-GitHub: https://github.com/dimassantoso/kapynis
+GitHub: https://github.com/dimassantoso/merapy
 
 ## Key paths
 
@@ -15,7 +15,7 @@ GitHub: https://github.com/dimassantoso/kapynis
 | CLI templates | `src/kapynis/cli/templates/` |
 | Task queue dashboard (Python backend) | `src/kapynis/codebase/app/task_queue_worker/dashboard.py` |
 | Embedded dashboard static files | `src/kapynis/codebase/app/task_queue_worker/dashboard_static/` |
-| Dashboard UI repo | `/Users/dimas/Documents/Project/personal/kapynis-taskqueue-dashboard/` |
+| Dashboard UI repo | `/Users/dimas/Documents/Project/personal/merapy-taskqueue-dashboard/` |
 | candi Go source (reference) | `/Users/dimas/Documents/Project/OpenSource/candi/` |
 | candi dashboard reference | `/Users/dimas/Documents/Project/OpenSource/task-queue-worker-dashboard/` |
 | Example services | `/Users/dimas/Documents/Project/personal/{user,product}-service/` |
@@ -30,12 +30,12 @@ GitHub: https://github.com/dimassantoso/kapynis
 .venv/bin/mypy src                  # type-check
 
 # CLI
-kapynis init          # scaffold new service
-kapynis add-module    # add module to service
-kapynis add-handler   # add delivery handler
+merapy init          # scaffold new service
+merapy add-module    # add module to service
+merapy add-handler   # add delivery handler
 
 # Dashboard (rebuild + embed into kapynis)
-cd /Users/dimas/Documents/Project/personal/kapynis-taskqueue-dashboard
+cd /Users/dimas/Documents/Project/personal/merapy-taskqueue-dashboard
 make embed KAPYNIS_DIR=/Users/dimas/Documents/Project/personal/kapynis
 ```
 
@@ -55,13 +55,13 @@ make proto                        # generate gRPC stubs (if USE_GRPC=true)
 3. **Task queue tables** use `TaskQueueBase` (separate from service `Base`) — must merge metadata in `alembic/env.py`.
 4. **`TaskBase` is now `TaskQueueBase`** — old name causes ImportError.
 5. **Strawberry auto-camelCase** — task queue dashboard schema uses `StrawberryConfig(auto_camel_case=False)` to match candi's snake_case field names.
-6. **Dashboard embed** — after changing `kapynis-taskqueue-dashboard`, always run `make embed` to update `dashboard_static/`.
+6. **Dashboard embed** — after changing `merapy-taskqueue-dashboard`, always run `make embed` to update `dashboard_static/`.
 7. **Broker connect** — Kafka/RabbitMQ `start()` is wrapped with `asyncio.wait_for(timeout=10)` — if broker is down, service logs warning and continues.
 
 ## Architecture in one diagram
 
 ```
-kapynis init → generates service/
+merapy init → generates service/
   ├── main.py              ← check_pending_migrations() then App(service).run()
   ├── src/internal/
   │   ├── service.py       ← ServiceFactory: modules + apps

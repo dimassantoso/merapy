@@ -1,0 +1,43 @@
+"""gRPC delivery handler for {{ module_pascal }}."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from merapy.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class {{ module_pascal }}GRPCHandler:
+    """gRPC handler stub for {{ module_pascal }}.
+
+    Register your generated protobuf servicer here and implement the RPC methods.
+    Example:
+        from src.proto.{{ module_snake }}_pb2_grpc import (
+            {{ module_pascal }}ServiceServicer,
+            add_{{ module_pascal }}ServiceServicer_to_server,
+        )
+    """
+
+    def register(self, server: Any) -> None:
+        """Register this handler with the gRPC server.
+
+        Uncomment and adapt once you have generated proto stubs:
+
+            add_{{ module_pascal }}ServiceServicer_to_server(self, server)
+        """
+        logger.info("{{ module_snake }}.grpc_handler_registered")
+
+    # --- RPC method stubs ---------------------------------------------------
+    # async def GetAll(self, request, context):
+    #     ...
+    #
+    # async def GetDetail(self, request, context):
+    #     ...
+    #
+    # async def Create(self, request, context):
+    #     ...
+    #
+    # async def Delete(self, request, context):
+    #     ...

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from kapynis.cli.markers import has_marker, inject
+from merapy.cli.markers import has_marker, inject
 
 
 def test_inject_after_marker(tmp_path: Path) -> None:

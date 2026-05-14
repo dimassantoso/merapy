@@ -1,6 +1,6 @@
 import pytest
 
-from kapynis.repository.uow import SharedSingleton
+from merapy.repository.uow import SharedSingleton
 
 
 def test_set_once_is_idempotent() -> None:
