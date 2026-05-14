@@ -28,6 +28,14 @@ class CompositeValidator:
             raise RuntimeError("JSON-Schema validator not configured")
         self._json.validate_document(schema_id, document)
 
+    def validate(self, schema_id: str, document: Any) -> None:
+        """Validate ``document`` against the JSON schema identified by ``schema_id``.
+
+        Primary API used by generated REST handlers. Delegates to
+        ``validate_document``. Raises ``MultiError`` on failure.
+        """
+        self.validate_document(schema_id, document)
+
     def validate_struct(self, data: Any) -> None:
         self._struct.validate_struct(data)
 

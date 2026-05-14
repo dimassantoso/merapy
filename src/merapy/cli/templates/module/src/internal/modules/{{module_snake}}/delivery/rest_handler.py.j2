@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import Request, status
 
+from merapy.helper.multi_error import MultiError
 from merapy.helper.query_param import parse_from_query_param
 from merapy.codebase.factory.dependency import Dependency
 from merapy.codebase.interfaces.rest_router import RESTRouter
@@ -32,9 +33,10 @@ class {{ module_pascal }}RESTHandler:
     async def _list(self, request: Request) -> object:
         f = parse_from_query_param(dict(request.query_params), Filter{{ module_pascal }})
         if self._validator:
-            err = self._validator.validate("{{ module_snake }}/get_all", f.model_dump(exclude_none=True))
-            if err:
-                return HTTPResponse.new(status.HTTP_400_BAD_REQUEST, "invalid filter", err).to_response()
+            try:
+                self._validator.validate("{{ module_snake }}/get_all", f.model_dump(exclude_none=True))
+            except MultiError as err:
+                return HTTPResponse.new(status.HTTP_400_BAD_REQUEST, "invalid filter", err.to_map()).to_response()
         rows, meta = await get_shared_usecase().{{ module_snake }}().get_all(f)
         return HTTPResponse.new(status.HTTP_200_OK, "success", meta, [r.model_dump(by_alias=True) for r in rows]).to_response()
 
@@ -46,17 +48,19 @@ class {{ module_pascal }}RESTHandler:
 
     async def _create(self, payload: Request{{ module_pascal }}) -> object:
         if self._validator:
-            err = self._validator.validate("{{ module_snake }}/save", payload.model_dump(exclude_none=True))
-            if err:
-                return HTTPResponse.new(status.HTTP_400_BAD_REQUEST, "invalid payload", err).to_response()
+            try:
+                self._validator.validate("{{ module_snake }}/save", payload.model_dump(exclude_none=True))
+            except MultiError as err:
+                return HTTPResponse.new(status.HTTP_400_BAD_REQUEST, "invalid payload", err.to_map()).to_response()
         created = await get_shared_usecase().{{ module_snake }}().create(payload)
         return HTTPResponse.new(status.HTTP_201_CREATED, "created", created).to_response()
 
     async def _update(self, id: int, payload: Request{{ module_pascal }}) -> object:  # noqa: A002
         if self._validator:
-            err = self._validator.validate("{{ module_snake }}/save", payload.model_dump(exclude_none=True))
-            if err:
-                return HTTPResponse.new(status.HTTP_400_BAD_REQUEST, "invalid payload", err).to_response()
+            try:
+                self._validator.validate("{{ module_snake }}/save", payload.model_dump(exclude_none=True))
+            except MultiError as err:
+                return HTTPResponse.new(status.HTTP_400_BAD_REQUEST, "invalid payload", err.to_map()).to_response()
         try:
             updated = await get_shared_usecase().{{ module_snake }}().update(id, payload)
         except ValueError as e:
