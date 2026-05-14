@@ -588,18 +588,32 @@ class TaskQueueDashboard:
             @app.get("/", include_in_schema=False, response_model=None)
             @app.get("/{path:path}", include_in_schema=False, response_model=None)
             async def serve_spa(path: str = "") -> FileResponse | HTMLResponse:
-                # Try exact file first
-                candidate = static_dir / path
-                if candidate.is_file():
-                    return FileResponse(str(candidate))
-                # Try with .html
-                html_candidate = static_dir / f"{path}.html"
-                if html_candidate.is_file():
-                    return FileResponse(str(html_candidate))
-                # Fall back to index.html (SPA routing)
-                index = static_dir / "index.html"
-                if index.is_file():
-                    return FileResponse(str(index))
+                # Strip trailing slash for lookup
+                clean = path.rstrip("/")
+
+                # 1. Exact file match
+                if clean:
+                    candidate = static_dir / clean
+                    if candidate.is_file():
+                        return FileResponse(str(candidate))
+
+                # 2. Directory index (e.g. "task/" → "task/index.html")
+                if clean:
+                    index_candidate = static_dir / clean / "index.html"
+                    if index_candidate.is_file():
+                        return FileResponse(str(index_candidate))
+
+                # 3. .html extension
+                if clean:
+                    html_candidate = static_dir / f"{clean}.html"
+                    if html_candidate.is_file():
+                        return FileResponse(str(html_candidate))
+
+                # 4. Root index fallback
+                root_index = static_dir / "index.html"
+                if root_index.is_file():
+                    return FileResponse(str(root_index))
+
                 return HTMLResponse("<h1>Dashboard not found</h1>", status_code=404)
         else:
             @app.get("/", include_in_schema=False, response_model=None)
