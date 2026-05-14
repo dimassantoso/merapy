@@ -1,8 +1,8 @@
-# kapynis
+# merapy
 
 Python clean-architecture microservice framework — a Pythonic port of [candi](https://github.com/golangid/candi) (Go).
 
-`kapynis` gives you the same factory + singleton + clean-architecture shape candi gives Go services, with an interactive CLI that scaffolds projects and modules the same way `candi -init` / `candi -add-module` does. It targets Python 3.11+ and is async-first across every layer.
+`merapy` gives you the same factory + singleton + clean-architecture shape candi gives Go services, with an interactive CLI that scaffolds projects and modules the same way `candi -init` / `candi -add-module` does. It targets Python 3.11+ and is async-first across every layer.
 
 ---
 
@@ -22,8 +22,8 @@ Python clean-architecture microservice framework — a Pythonic port of [candi](
 
 | Repo | Purpose |
 |------|---------|
-| [`kapynis`](https://github.com/dimassantoso/merapy) | The framework |
-| [`merapy-taskqueue-dashboard`](https://github.com/dimassantoso/merapy-taskqueue-dashboard) | Task queue dashboard UI (Next.js, embedded into kapynis) |
+| [`merapy`](https://github.com/dimassantoso/merapy) | The framework |
+| [`merapy-taskqueue-dashboard`](https://github.com/dimassantoso/merapy-taskqueue-dashboard) | Task queue dashboard UI (Next.js, embedded into merapy) |
 | [`merapy-plugin`](https://github.com/dimassantoso/merapy-plugin) | Optional adapters (brokers, storage, REST engines) |
 
 ---
@@ -36,7 +36,7 @@ Requires **Python 3.11+** (3.12 is the development reference).
 
 ```bash
 # pipx (recommended — isolated, global CLI)
-pipx install kapynis                                          # once on PyPI
+pipx install merapy                                          # once on PyPI
 pipx install git+https://github.com/dimassantoso/merapy.git  # from GitHub
 
 # uv (faster alternative)
@@ -47,7 +47,7 @@ uv tool install git+https://github.com/dimassantoso/merapy.git
 
 ```bash
 git clone https://github.com/dimassantoso/merapy.git
-cd kapynis
+cd merapy
 python3.12 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 ```
@@ -119,7 +119,7 @@ Task Queue Dashboard: `http://localhost:8080` *(if USE_TASK_QUEUE_WORKER=true)*
 
 ## CLI reference
 
-Running `kapynis` with no arguments opens the interactive menu.
+Running `merapy` with no arguments opens the interactive menu.
 
 | Command | What it does |
 |---------|-------------|
@@ -253,7 +253,7 @@ When `USE_TASK_QUEUE_WORKER=true`, the worker automatically serves a dashboard o
 
 **Features:** view all jobs, filter by task/status, retry failed jobs, delete jobs, bulk retry/clean, pagination. Auto-refreshes every 5 seconds.
 
-The dashboard UI is maintained in [`merapy-taskqueue-dashboard`](https://github.com/dimassantoso/merapy-taskqueue-dashboard) and embedded into the kapynis package via `make embed`.
+The dashboard UI is maintained in [`merapy-taskqueue-dashboard`](https://github.com/dimassantoso/merapy-taskqueue-dashboard) and embedded into the merapy package via `make embed`.
 
 **Task queue tables** use the same schema as candi's `task_queue_worker_jobs` — compatible with the original [task-queue-worker-dashboard](https://github.com/agungdwiprasetyo/task-queue-worker-dashboard).
 

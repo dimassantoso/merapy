@@ -1,20 +1,20 @@
-# AGENTS.md — kapynis workspace context
+# AGENTS.md — merapy workspace context
 
 > Read this first. Full reference is in `CLAUDE.md`.
 
 ## What this is
 
-**kapynis** — Python microservice framework porting Go [candi](https://github.com/golangid/candi).
+**merapy** — Python microservice framework porting Go [candi](https://github.com/golangid/candi).
 GitHub: https://github.com/dimassantoso/merapy
 
 ## Key paths
 
 | What | Where |
 |------|-------|
-| Framework source | `/Users/dimas/Documents/Project/personal/kapynis/src/kapynis/` |
-| CLI templates | `src/kapynis/cli/templates/` |
-| Task queue dashboard (Python backend) | `src/kapynis/codebase/app/task_queue_worker/dashboard.py` |
-| Embedded dashboard static files | `src/kapynis/codebase/app/task_queue_worker/dashboard_static/` |
+| Framework source | `/Users/dimas/Documents/Project/personal/merapy/src/merapy/` |
+| CLI templates | `src/merapy/cli/templates/` |
+| Task queue dashboard (Python backend) | `src/merapy/codebase/app/task_queue_worker/dashboard.py` |
+| Embedded dashboard static files | `src/merapy/codebase/app/task_queue_worker/dashboard_static/` |
 | Dashboard UI repo | `/Users/dimas/Documents/Project/personal/merapy-taskqueue-dashboard/` |
 | candi Go source (reference) | `/Users/dimas/Documents/Project/OpenSource/candi/` |
 | candi dashboard reference | `/Users/dimas/Documents/Project/OpenSource/task-queue-worker-dashboard/` |
@@ -23,7 +23,7 @@ GitHub: https://github.com/dimassantoso/merapy
 ## Dev commands
 
 ```bash
-# In /Users/dimas/Documents/Project/personal/kapynis
+# In /Users/dimas/Documents/Project/personal/merapy
 .venv/bin/pip install -e ".[dev]"   # install editable
 .venv/bin/pytest tests/unit -v      # run tests
 .venv/bin/ruff check src tests      # lint
@@ -34,9 +34,9 @@ merapy init          # scaffold new service
 merapy add-module    # add module to service
 merapy add-handler   # add delivery handler
 
-# Dashboard (rebuild + embed into kapynis)
+# Dashboard (rebuild + embed into merapy)
 cd /Users/dimas/Documents/Project/personal/merapy-taskqueue-dashboard
-make embed KAPYNIS_DIR=/Users/dimas/Documents/Project/personal/kapynis
+make embed MERAPY_DIR=/Users/dimas/Documents/Project/personal/merapy
 ```
 
 ## Generated service commands
