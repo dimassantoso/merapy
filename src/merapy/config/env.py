@@ -7,11 +7,44 @@ where the databases are. The generated service extends this with its own
 
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _parse_duration(value: object) -> float:
+    """Parse a duration string into seconds.
+
+    Supported units: ``ms`` (milliseconds), ``s`` (seconds),
+    ``m`` (minutes), ``h`` (hours). Units can be combined.
+
+    Examples::
+
+        "30s"    -> 30.0
+        "5m"     -> 300.0
+        "1h"     -> 3600.0
+        "1h30m"  -> 5400.0
+        "500ms"  -> 0.5
+        "30"     -> 30.0   (plain number treated as seconds)
+        30       -> 30.0
+    """
+    if isinstance(value, (int, float)):
+        return float(value)
+    s = str(value).strip()
+    # Plain number — treat as seconds.
+    if re.fullmatch(r"[0-9]+(\.[0-9]+)?", s):
+        return float(s)
+    _UNITS: dict[str, float] = {"ms": 0.001, "s": 1.0, "m": 60.0, "h": 3600.0}
+    matches = re.findall(r"(\d+(?:\.\d+)?)(ms|[smh])", s)
+    if not matches:
+        raise ValueError(
+            f"cannot parse duration {value!r} — "
+            "use a plain number (seconds) or a string like '30s', '5m', '1h', '500ms'"
+        )
+    return sum(float(n) * _UNITS[u] for n, u in matches)
 
 
 class KafkaEnv(BaseSettings):
@@ -47,6 +80,11 @@ class Env(BaseSettings):
     )
     debug_mode: bool = Field(default=True, alias="DEBUG_MODE")
     load_config_timeout: float = Field(default=30.0, alias="LOAD_CONFIG_TIMEOUT")
+
+    @field_validator("load_config_timeout", mode="before")
+    @classmethod
+    def _parse_timeout(cls, v: object) -> float:
+        return _parse_duration(v)
 
     # Server toggles
     use_rest: bool = Field(default=True, alias="USE_REST")
