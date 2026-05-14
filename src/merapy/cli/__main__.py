@@ -41,8 +41,31 @@ def _ask(label: str) -> str:
         return ""
 
 
+def _find_service_root() -> Path | None:
+    """Return cwd if it looks like a service root, else None."""
+    cwd = Path(os.getcwd())
+    if (cwd / "pyproject.toml").exists() and (cwd / "merapy.json").exists():
+        return cwd
+    return None
+
+
+def _require_service_root() -> Path:
+    """Return the service root or exit with a helpful message."""
+    root = _find_service_root()
+    if root is None:
+        click.echo(
+            "\033[31m✗ Not inside a merapy service directory.\033[0m\n"
+            "  Run this command from the service root (where pyproject.toml and merapy.json live).\n"
+            "  Use option 1 to scaffold a new service first."
+        )
+        raise SystemExit(1)
+    return root
+
+
 def _run_add_module(ctx: click.Context) -> None:
     """Interactive wrapper for add-module (option 2)."""
+    service_root = _require_service_root()
+
     while True:
         raw = _ask("Please input module name(s) to add (separated by comma)")
         names = [n.strip() for n in raw.split(",") if n.strip()]
@@ -50,13 +73,14 @@ def _run_add_module(ctx: click.Context) -> None:
             break
         click.echo("\033[31mModule name cannot be empty, try again\033[0m")
 
-    service_root = Path(os.getcwd())
     for name in names:
         ctx.invoke(add_module, name=name, service_root=service_root)
 
 
 def _run_add_handler(ctx: click.Context) -> None:
     """Interactive wrapper for add-handler (option 3)."""
+    service_root = _require_service_root()
+
     while True:
         module = _ask("Please input the module name")
         if module.strip():
@@ -88,10 +112,8 @@ def _run_add_handler(ctx: click.Context) -> None:
         if valid:
             click.echo("\033[31mNo handler type selected, try again\033[0m")
 
-    service_root = Path(os.getcwd())
     for handler_type in selected:
         ctx.invoke(add_handler, module=module.strip(), handler_type=handler_type, service_root=service_root)
-
 
 @click.group(
     invoke_without_command=True,
