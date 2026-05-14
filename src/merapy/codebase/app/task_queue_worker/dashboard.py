@@ -102,6 +102,51 @@ class FilterMutateJobInputResolver:
 
 
 # ---------------------------------------------------------------------------
+# Worker stats
+# ---------------------------------------------------------------------------
+
+@strawberry.type
+class WorkerStatsResolver:
+    """Process memory and CPU snapshot for the running worker."""
+    memory_rss_mb: float = 0.0
+    """Resident Set Size — physical RAM used (MB)."""
+    memory_vms_mb: float = 0.0
+    """Virtual Memory Size (MB)."""
+    memory_percent: float = 0.0
+    """RSS as % of total system RAM."""
+    cpu_percent: float = 0.0
+    """CPU usage % since last call (non-blocking)."""
+
+
+def _get_worker_stats() -> WorkerStatsResolver:
+    """Collect process stats. Uses psutil if available, falls back to stdlib resource."""
+    try:
+        import psutil
+        proc = psutil.Process(os.getpid())
+        mem = proc.memory_info()
+        return WorkerStatsResolver(
+            memory_rss_mb=round(mem.rss / 1024 / 1024, 2),
+            memory_vms_mb=round(mem.vms / 1024 / 1024, 2),
+            memory_percent=round(proc.memory_percent(), 2),
+            cpu_percent=round(proc.cpu_percent(interval=None), 2),
+        )
+    except ImportError:
+        pass
+    try:
+        import resource
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+        # ru_maxrss is in bytes on Linux, kilobytes on macOS
+        import sys
+        rss_bytes = usage.ru_maxrss * (1 if sys.platform == "linux" else 1024)
+        return WorkerStatsResolver(
+            memory_rss_mb=round(rss_bytes / 1024 / 1024, 2),
+        )
+    except Exception:
+        pass
+    return WorkerStatsResolver()
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -126,7 +171,7 @@ async def _query_jobs(
         if f.statuses:
             stmt = stmt.where(Job.status.in_(f.statuses))
         if f.search:
-            stmt = stmt.where(Job.task_name.ilike(f"%{f.search}%"))
+            stmt = stmt.where(Job.arguments.ilike(f"%{f.search}%"))
         if f.job_id:
             stmt = stmt.where(Job.id == f.job_id)
 
@@ -161,18 +206,16 @@ async def _query_jobs(
 
 
 # ---------------------------------------------------------------------------
-# GraphQL schema
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
-# GraphQL schema — module-level worker reference so strawberry can resolve types
+# GraphQL schema — module-level state
 # ---------------------------------------------------------------------------
 
 _worker_ref: "TaskQueueWorker | None" = None  # set by _build_schema
 
 # Asyncio condition — mutations notify this; subscriptions wait on it.
-# Created lazily to ensure it uses the running event loop.
 _change_condition: "asyncio.Condition | None" = None
+
+# Active subscriber counter — incremented/decremented by listen_task_dashboard.
+_active_subscribers: int = 0
 
 
 def _get_condition() -> asyncio.Condition:
@@ -183,7 +226,7 @@ def _get_condition() -> asyncio.Condition:
 
 
 def _notify_change() -> None:
-    """Signal all subscriptions that data has changed. Safe to call from any coroutine."""
+    """Signal all subscriptions that data has changed."""
     async def _do_notify() -> None:
         cond = _get_condition()
         async with cond:
@@ -197,10 +240,7 @@ def _notify_change() -> None:
 
 
 async def _recalc_summary(session_factory: Any, task_name: str) -> None:
-    """Recompute job_summaries for a task by counting directly from jobs table.
-
-    Called after every mutation so the summary is always accurate.
-    """
+    """Recompute job_summaries for a task by counting directly from jobs table."""
     from merapy.codebase.app.task_queue_worker.model import Job, JobSummary, JobStatus
     async with session_factory() as session:  # type: ignore[misc]
         async with session.begin():
@@ -268,6 +308,7 @@ class MetaTaskResolver:
 class TaskListResolver:
     meta: MetaTaskResolver
     data: list[TaskResolver]
+    stats: WorkerStatsResolver = strawberry.field(default_factory=WorkerStatsResolver)
 
 
 async def _get_all_task_impl() -> list[TaskResolver]:
@@ -319,6 +360,10 @@ class _Query:
     @strawberry.field
     async def get_all_task(self) -> list[TaskResolver]:
         return await _get_all_task_impl()
+
+    @strawberry.field
+    def get_worker_stats(self) -> WorkerStatsResolver:
+        return _get_worker_stats()
 
 
 @strawberry.type
@@ -410,6 +455,7 @@ class _Mutation:
 
     @strawberry.mutation
     async def retry_all_job(self, filter: FilterMutateJobInputResolver) -> str:
+        """Re-queue jobs for a task. If ``filter.statuses`` is empty, retries ALL jobs."""
         from merapy.codebase.app.task_queue_worker.model import Job, JobStatus
         w = _worker_ref
         assert w is not None and w._session_factory is not None
@@ -468,7 +514,11 @@ class _Subscription:
         limit: int = 10,
         search: Optional[str] = None,
     ) -> AsyncGenerator[TaskListResolver, None]:
-        """Push task summary on change OR every 2 seconds — whichever comes first."""
+        """Push task summary + worker stats on change OR every 2 seconds."""
+        global _active_subscribers
+        _active_subscribers += 1
+        _notify_change()
+
         async def _fetch() -> TaskListResolver:
             tasks = await _get_all_task_impl()
             if search:
@@ -480,29 +530,32 @@ class _Subscription:
                     page=page, limit=limit,
                     total_pages=max(1, (total + limit - 1) // limit),
                     total_records=total,
+                    total_client_subscriber=_active_subscribers,
                 ),
                 data=tasks[offset: offset + limit],
+                stats=_get_worker_stats(),
             )
 
-        # Push immediately on connect
-        yield await _fetch()
-
-        while True:
-            # Wait for change notification OR 2s timer — whichever fires first
-            cond = _get_condition()
-            async with cond:
-                try:
-                    await asyncio.wait_for(cond.wait(), timeout=2.0)
-                except asyncio.TimeoutError:
-                    pass
+        try:
             yield await _fetch()
+            while True:
+                cond = _get_condition()
+                async with cond:
+                    try:
+                        await asyncio.wait_for(cond.wait(), timeout=2.0)
+                    except asyncio.TimeoutError:
+                        pass
+                yield await _fetch()
+        finally:
+            _active_subscribers -= 1
+            _notify_change()
 
     @strawberry.subscription
     async def listen_all_job(
         self,
         filter: Optional[GetAllJobInputResolver] = None,
     ) -> AsyncGenerator[JobListResolver, None]:
-        """Push job list on change OR every 2 seconds — whichever comes first."""
+        """Push job list on change OR every 2 seconds."""
         async def _fetch() -> JobListResolver:
             w = _worker_ref
             if w is None or w._session_factory is None:
@@ -512,9 +565,7 @@ class _Subscription:
                 )
             return await _query_jobs(w._session_factory, filter or GetAllJobInputResolver())
 
-        # Push immediately on connect
         yield await _fetch()
-
         while True:
             cond = _get_condition()
             async with cond:
@@ -541,25 +592,15 @@ def _build_schema(worker: "TaskQueueWorker") -> strawberry.Schema:
 # ---------------------------------------------------------------------------
 
 def _find_static_dir() -> Path | None:
-    """Find the built Next.js dashboard static files.
-
-    Lookup order:
-    1. Bundled inside merapy package at dashboard_static/ — populated by
-       running `make embed` in merapy-taskqueue-dashboard
-    2. MERAPY_DASHBOARD_DIR env var (absolute path override)
-    3. <cwd>/dashboard/ — user manually copies merapy-taskqueue-dashboard/out/ here
-    """
-    # 1. Bundled inside merapy package (preferred — zero config for users)
+    """Find the built Next.js dashboard static files."""
     pkg_dir = Path(__file__).parent / "dashboard_static"
     if pkg_dir.is_dir() and (pkg_dir / "index.html").exists():
         return pkg_dir
 
-    # 2. Explicit env override
     env_dir = os.environ.get("MERAPY_DASHBOARD_DIR")
     if env_dir and Path(env_dir).is_dir():
         return Path(env_dir)
 
-    # 3. <cwd>/dashboard/ — user copies out/ here
     cwd_dir = Path.cwd() / "dashboard"
     if cwd_dir.is_dir() and (cwd_dir / "index.html").exists():
         return cwd_dir
@@ -585,17 +626,14 @@ class TaskQueueDashboard:
         schema = _build_schema(self._worker)
         app = FastAPI(title="Merapy Task Queue Dashboard", docs_url=None, redoc_url=None)
 
-        # GraphQL endpoint — with WebSocket subscription support
         graphql_router: GraphQLRouter[Any, Any] = GraphQLRouter(
             schema,
             subscription_protocols=["graphql-transport-ws", "graphql-ws"],
         )
         app.include_router(graphql_router, prefix="/graphql")
 
-        # Static dashboard UI
         static_dir = _find_static_dir()
         if static_dir:
-            # Serve _next/ assets
             next_static = static_dir / "_next"
             if next_static.is_dir():
                 app.mount("/_next", StaticFiles(directory=str(next_static)), name="next-static")
@@ -603,32 +641,22 @@ class TaskQueueDashboard:
             @app.get("/", include_in_schema=False, response_model=None)
             @app.get("/{path:path}", include_in_schema=False, response_model=None)
             async def serve_spa(path: str = "") -> FileResponse | HTMLResponse:
-                # Strip trailing slash for lookup
                 clean = path.rstrip("/")
-
-                # 1. Exact file match
                 if clean:
                     candidate = static_dir / clean
                     if candidate.is_file():
                         return FileResponse(str(candidate))
-
-                # 2. Directory index (e.g. "task/" → "task/index.html")
                 if clean:
                     index_candidate = static_dir / clean / "index.html"
                     if index_candidate.is_file():
                         return FileResponse(str(index_candidate))
-
-                # 3. .html extension
                 if clean:
                     html_candidate = static_dir / f"{clean}.html"
                     if html_candidate.is_file():
                         return FileResponse(str(html_candidate))
-
-                # 4. Root index fallback
                 root_index = static_dir / "index.html"
                 if root_index.is_file():
                     return FileResponse(str(root_index))
-
                 return HTMLResponse("<h1>Dashboard not found</h1>", status_code=404)
         else:
             @app.get("/", include_in_schema=False, response_model=None)
@@ -652,7 +680,7 @@ class TaskQueueDashboard:
             port=self._port,
             log_config=None,
             access_log=False,
-            lifespan="on",   # subscriptions need lifespan ON for strawberry ws
+            lifespan="on",
             ws="websockets",
         )
         self._server = uvicorn.Server(config)
