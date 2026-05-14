@@ -25,9 +25,11 @@ bind_trace_context()            — bind trace_id to structlog contextvars
 
 from __future__ import annotations
 
+import importlib
 import logging
+import platform
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import AsyncIterator, Protocol
 
 import structlog
 from opentelemetry import context as otel_context
@@ -45,25 +47,93 @@ _initialized: bool = False
 _jaeger_base_url: str = ""
 
 
+class _OTLPExporterModule(Protocol):
+    def install_otlp_grpc_exporter(self, endpoint: str, *, insecure: bool = True) -> None: ...
+
+
 # ---------------------------------------------------------------------------
 # Initialization
 # ---------------------------------------------------------------------------
 
-def init_tracer(service: str, *, console_export: bool = False) -> None:
+def init_tracer(
+    service: str,
+    *,
+    console_export: bool = False,
+    otlp_endpoint: str = "",
+    environment: str = "",
+) -> None:
     """Initialize the global TracerProvider with the given service name.
 
     Idempotent — safe to call multiple times. Subsequent calls are no-ops.
-    When ``console_export`` is True, spans are echoed to stdout (dev only).
-    OTLP exporters can be added afterwards via ``merapy_tracer_otlp``.
+
+    Mirrors candi's ``InitOpenTracing``:
+    - Service name is set as the OTel ``service.name`` resource attribute
+    - When ``environment`` is provided, it is appended to the service name
+      (e.g. ``product-service-production``) so each environment appears as a
+      separate service in Jaeger — exactly like candi does.
+    - ``otlp_endpoint`` auto-wires an OTLP gRPC exporter (requires
+      ``merapy-tracer-otlp``). Set ``JAEGER_OTLP_ENDPOINT`` in .env.
+
+    Args:
+        service: Service name (e.g. ``"product-service"``).
+        console_export: Echo spans to stdout (dev only).
+        otlp_endpoint: OTLP gRPC endpoint (e.g. ``"http://localhost:4317"``).
+            When set, spans are exported to Jaeger automatically.
+        environment: Deployment environment (``"development"``, ``"production"``…).
+            When non-empty and not ``"development"``, appended to service name.
     """
     global _initialized
     if _initialized:
         return
-    provider = TracerProvider(resource=Resource.create({SERVICE_NAME: service}))
+
+    # Mirror candi: append environment to service name for non-dev environments
+    # so each env is a distinct service in Jaeger's service dropdown.
+    jaeger_service = service
+    if environment and environment.lower() not in ("", "development"):
+        jaeger_service = f"{service}-{environment.lower()}"
+
+    from merapy import __version__ as _merapy_version
+
+    provider = TracerProvider(
+        resource=Resource.create({
+            SERVICE_NAME: jaeger_service,
+            "service.version": "",          # filled by app_version at boot
+            "merapy.version": _merapy_version,
+            "host.name": platform.node(),
+        })
+    )
     if console_export:
         provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+
     trace.set_tracer_provider(provider)
     _initialized = True
+
+    # Auto-wire OTLP exporter when endpoint is provided
+    if otlp_endpoint:
+        _install_otlp_exporter(otlp_endpoint, jaeger_service)
+
+
+def _install_otlp_exporter(endpoint: str, service: str) -> None:
+    """Install the optional OTLP exporter plugin when configured."""
+    try:
+        otlp_plugin = importlib.import_module("merapy_tracer_otlp")
+    except ImportError:
+        _log.warning(
+            "tracer.otlp_exporter_unavailable endpoint=%s hint=%s",
+            endpoint,
+            "pip install merapy-tracer-otlp",
+        )
+        return
+
+    plugin = otlp_plugin  # type: ignore[assignment]
+    try:
+        exporter = plugin  # type: _OTLPExporterModule
+        exporter.install_otlp_grpc_exporter(endpoint, insecure=True)
+    except Exception:
+        _log.exception("tracer.otlp_exporter_install_failed endpoint=%s", endpoint)
+        return
+
+    _log.info("tracer.otlp_exporter_installed endpoint=%s service=%s", endpoint, service)
 
 
 def set_jaeger_base_url(url: str) -> None:

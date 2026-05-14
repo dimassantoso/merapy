@@ -126,6 +126,10 @@ class Env(BaseSettings):
     jaeger_base_url: str = Field(default="", alias="JAEGER_BASE_URL")
     """Jaeger UI base URL for trace link generation (e.g. http://localhost:16686).
     Leave empty to disable trace URL logging."""
+    jaeger_otlp_endpoint: str = Field(default="", alias="JAEGER_OTLP_ENDPOINT")
+    """OTLP gRPC endpoint for Jaeger (e.g. http://localhost:4317).
+    When set, spans are automatically exported to Jaeger via OTLP gRPC.
+    Requires merapy-tracer-otlp: pip install merapy-tracer-otlp"""
     trace_body_max_size: int = Field(default=65536, alias="TRACE_BODY_MAX_SIZE")
     """Maximum request/response body size (bytes) to log as span events. Default 64 KB."""
 

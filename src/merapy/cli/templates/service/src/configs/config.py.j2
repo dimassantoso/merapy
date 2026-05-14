@@ -36,10 +36,15 @@ async def load_service_configs(cfg: "Config") -> list[Closer]:
     # Initialize logger first so all subsequent boot logs include service name.
     init_logger(service=env.service_name, debug=env.debug_mode)
 
-    # Initialize OpenTelemetry tracer. OTLP exporter can be added here:
-    #   from merapy_tracer_otlp import install_otlp_grpc_exporter
-    #   install_otlp_grpc_exporter(endpoint="http://jaeger:4317")
-    init_tracer(env.service_name)
+    # Initialize OpenTelemetry tracer.
+    # Set JAEGER_OTLP_ENDPOINT in .env to export spans automatically, e.g.:
+    #   JAEGER_OTLP_ENDPOINT=http://localhost:4317
+    # Requires: pip install merapy-tracer-otlp
+    init_tracer(
+        env.service_name,
+        otlp_endpoint=env.jaeger_otlp_endpoint,
+        environment=env.environment,
+    )
     if env.jaeger_base_url:
         set_jaeger_base_url(env.jaeger_base_url)
 
