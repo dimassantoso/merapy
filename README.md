@@ -187,6 +187,12 @@ RABBITMQ_EXCHANGE_NAME=delayed
 
 CORS_ALLOW_ORIGINS=["*"]
 MAX_WORKERS=10
+
+# Build / deployment info (optional — displayed in task queue dashboard)
+APP_VERSION=1.0.0
+BUILD_NUMBER=42
+GIT_COMMIT=abc1234
+BUILD_DATE=2026-05-14T10:30:00Z
 ```
 
 ---
@@ -281,9 +287,35 @@ Per-module clean-architecture flow:
 When `USE_TASK_QUEUE_WORKER=true`, the worker automatically serves a dashboard on `TASK_QUEUE_DASHBOARD_PORT` (default **8080**):
 
 - `http://localhost:8080/` — dashboard UI (embedded Next.js static build)
-- `http://localhost:8080/graphql` — GraphQL API
+- `http://localhost:8080/graphql` — GraphQL API + WebSocket subscriptions
 
-**Features:** view all tasks and jobs, filter by status, retry failed jobs, stop running jobs, delete jobs, bulk retry/clean, real-time updates via GraphQL subscriptions.
+**Features:**
+- View all registered tasks with live job counts per status
+- Drill into a task to see individual jobs (paginated, filterable)
+- View full job detail: arguments, result, error, trace ID, timestamps
+- Retry failed/stopped jobs (single or bulk)
+- Stop running/queued jobs — button disabled when nothing is stoppable
+- Delete jobs permanently
+- Bulk clean by task + status
+- Add new jobs manually
+- Real-time updates via GraphQL subscriptions (push every 2s, immediate on mutations)
+
+**Service info panel** — always visible, shows two sections:
+
+*Deployment* — set these env vars in your CI/CD pipeline:
+```bash
+SERVICE_NAME=user-service       # displayed as "USER SERVICE" in navbar
+APP_VERSION=1.4.2
+BUILD_NUMBER=142                # e.g. ${{ github.run_number }}
+GIT_COMMIT=a3f9c12...           # e.g. ${{ github.sha }}
+BUILD_DATE=2026-05-14T10:30:00Z # e.g. ${{ github.event.head_commit.timestamp }}
+```
+
+*Runtime* — live process metrics (install `psutil` for full data):
+```bash
+.venv/bin/pip install psutil
+```
+Memory auto-scales: B / KB / MB / GB / TB.
 
 The dashboard UI is maintained in [`merapy-taskqueue-dashboard`](https://github.com/dimassantoso/merapy-taskqueue-dashboard) and embedded into the merapy package via `make embed`.
 

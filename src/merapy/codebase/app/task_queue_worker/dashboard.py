@@ -116,10 +116,31 @@ class WorkerStatsResolver:
     """RSS as % of total system RAM."""
     cpu_percent: float = 0.0
     """CPU usage % since last call (non-blocking)."""
+    merapy_version: str = ""
+    """merapy framework version."""
+    service_name: str = ""
+    """Service name — read from SERVICE_NAME env var."""
+    service_version: str = ""
+    """Service version — read from APP_VERSION env var."""
+    build_number: str = ""
+    """CI build number — read from BUILD_NUMBER env var."""
+    git_commit: str = ""
+    """Git commit SHA — read from GIT_COMMIT env var."""
+    build_date: str = ""
+    """Build timestamp — read from BUILD_DATE env var."""
 
 
 def _get_worker_stats() -> WorkerStatsResolver:
     """Collect process stats. Uses psutil if available, falls back to stdlib resource."""
+    from merapy import __version__ as _merapy_version
+    from merapy.config.env import get_env
+    _env = get_env()
+    service_name = _env.service_name
+    service_version = _env.app_version
+    build_number = _env.build_number
+    git_commit = _env.git_commit
+    build_date = _env.build_date
+
     try:
         import psutil
         proc = psutil.Process(os.getpid())
@@ -129,6 +150,12 @@ def _get_worker_stats() -> WorkerStatsResolver:
             memory_vms_mb=round(mem.vms / 1024 / 1024, 2),
             memory_percent=round(proc.memory_percent(), 2),
             cpu_percent=round(proc.cpu_percent(interval=None), 2),
+            merapy_version=_merapy_version,
+            service_name=service_name,
+            service_version=service_version,
+            build_number=build_number,
+            git_commit=git_commit,
+            build_date=build_date,
         )
     except ImportError:
         pass
@@ -140,10 +167,23 @@ def _get_worker_stats() -> WorkerStatsResolver:
         rss_bytes = usage.ru_maxrss * (1 if sys.platform == "linux" else 1024)
         return WorkerStatsResolver(
             memory_rss_mb=round(rss_bytes / 1024 / 1024, 2),
+            merapy_version=_merapy_version,
+            service_name=service_name,
+            service_version=service_version,
+            build_number=build_number,
+            git_commit=git_commit,
+            build_date=build_date,
         )
     except Exception:
         pass
-    return WorkerStatsResolver()
+    return WorkerStatsResolver(
+        merapy_version=_merapy_version,
+        service_name=service_name,
+        service_version=service_version,
+        build_number=build_number,
+        git_commit=git_commit,
+        build_date=build_date,
+    )
 
 
 # ---------------------------------------------------------------------------

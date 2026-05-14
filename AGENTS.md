@@ -11,10 +11,11 @@ GitHub: https://github.com/dimassantoso/merapy
 
 | What | Where |
 |------|-------|
-| Framework source | `/Users/dimas/Documents/Project/personal/merapy/src/merapy/` |
+| Framework source | `src/merapy/` |
 | CLI templates | `src/merapy/cli/templates/` |
 | Task queue dashboard (Python backend) | `src/merapy/codebase/app/task_queue_worker/dashboard.py` |
 | Embedded dashboard static files | `src/merapy/codebase/app/task_queue_worker/dashboard_static/` |
+| Env config | `src/merapy/config/env.py` |
 | Dashboard UI repo | `/Users/dimas/Documents/Project/personal/merapy-taskqueue-dashboard/` |
 | Example services | `/Users/dimas/Documents/Project/personal/{user,product}-service/` |
 
@@ -78,12 +79,26 @@ merapy init → generates service/
 - **Port**: `TASK_QUEUE_DASHBOARD_PORT` (default 8080)
 - **Served by**: `dashboard.py` — FastAPI + strawberry GraphQL + embedded Next.js static files
 - **GraphQL schema** (snake_case, `auto_camel_case=False`):
-  - Queries: `get_all_job`, `get_count_job`, `get_all_task`
+  - Queries: `get_all_job`, `get_count_job`, `get_all_task`, `get_worker_stats`
   - Mutations: `add_job`, `retry_job`, `stop_job`, `stop_all_job`, `retry_all_job`, `delete_job`, `clean_job`
   - Subscriptions: `listen_task_dashboard`, `listen_all_job` (push every 2s)
+- **`listen_task_dashboard` response** includes `stats: WorkerStatsResolver` with:
+  - `memory_rss_mb`, `memory_vms_mb`, `memory_percent`, `cpu_percent`
+  - `merapy_version`, `service_name`, `service_version`
+  - `build_number`, `git_commit`, `build_date`
 - **Tables**: `task_queue_worker_jobs`, `task_queue_worker_job_summaries`, `task_queue_worker_job_histories`, `task_queue_worker_configurations`
 - **Status values**: `QUEUEING`, `RETRYING`, `SUCCESS`, `FAILURE`, `STOPPED`
-- **Button semantics**: Retry = FAILURE/STOPPED only; Stop = QUEUEING/RETRYING only; Delete = always
+- **Button semantics**: Retry = FAILURE/STOPPED only; Stop = QUEUEING/RETRYING only (disabled when none active); Delete = always
+
+## Build / deployment env vars (all optional)
+
+| Env var | Field | Default | Purpose |
+|---------|-------|---------|---------|
+| `SERVICE_NAME` | `service_name` | `merapy-service` | Displayed in dashboard navbar |
+| `APP_VERSION` | `app_version` | `dev` | Semantic version / release tag |
+| `BUILD_NUMBER` | `build_number` | `""` | CI build number (GitHub Actions run, Jenkins ID) |
+| `GIT_COMMIT` | `git_commit` | `""` | Git commit SHA baked in at build time |
+| `BUILD_DATE` | `build_date` | `""` | ISO-8601 build timestamp |
 
 ## Common pitfalls
 
@@ -97,6 +112,7 @@ merapy init → generates service/
 | `options` unresolved in Litestar | Use `HTTPRouteHandler(path, http_method="OPTIONS")` |
 | Strawberry `Unexpected type` | Wrap Pydantic model with `@strawberry.experimental.pydantic.type(model=..., all_fields=True)` |
 | Kafka/RabbitMQ crashes on start | Broker connect has 10s timeout + graceful fallback — check broker is running |
+| Memory shows `0.0` | Install `psutil` in service venv: `.venv/bin/pip install psutil` |
 
 ## Marker system (code generation)
 

@@ -112,6 +112,16 @@ class Env(BaseSettings):
     max_workers: int = Field(default=10, alias="MAX_WORKERS")
     """Per-worker concurrency cap (asyncio.Semaphore)."""
 
+    # Build / deployment info
+    app_version: str = Field(default="dev", alias="APP_VERSION")
+    """Semantic version or tag of the deployed service (e.g. 1.2.3)."""
+    build_number: str = Field(default="", alias="BUILD_NUMBER")
+    """CI build number (e.g. GitHub Actions run number, Jenkins build ID)."""
+    git_commit: str = Field(default="", alias="GIT_COMMIT")
+    """Full or short git commit SHA baked in at build time."""
+    build_date: str = Field(default="", alias="BUILD_DATE")
+    """ISO-8601 timestamp when the image/artifact was built (e.g. 2024-05-14T10:30:00Z)."""
+
     # Brokers (nested env vars via KafkaEnv / RabbitMQEnv)
     kafka: KafkaEnv = Field(default_factory=KafkaEnv)
     rabbitmq: RabbitMQEnv = Field(default_factory=RabbitMQEnv)
