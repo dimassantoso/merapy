@@ -1,4 +1,4 @@
-"""Environment variable schema. Mirrors candi's ``config/env/environment.go``.
+"""Environment variable schema.
 
 All boot decisions are env-driven: which servers run, which workers run,
 where the databases are. The generated service extends this with its own
@@ -48,7 +48,7 @@ class Env(BaseSettings):
     debug_mode: bool = Field(default=True, alias="DEBUG_MODE")
     load_config_timeout: float = Field(default=30.0, alias="LOAD_CONFIG_TIMEOUT")
 
-    # Server toggles (mirrors candi USE_REST / USE_GRPC / USE_GRAPHQL)
+    # Server toggles
     use_rest: bool = Field(default=True, alias="USE_REST")
     use_grpc: bool = Field(default=False, alias="USE_GRPC")
     use_graphql: bool = Field(default=False, alias="USE_GRAPHQL")

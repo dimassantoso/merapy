@@ -14,10 +14,7 @@ class Publisher(Protocol):
 
 @runtime_checkable
 class Broker(Closer, Protocol):
-    """Broker (Kafka / RabbitMQ / Redis) wrapper.
-
-    Mirrors candi's ``interfaces.Broker``.
-    """
+    """Broker (Kafka / RabbitMQ / Redis) wrapper."""
 
     def name(self) -> Worker: ...
     def configuration(self) -> Any: ...

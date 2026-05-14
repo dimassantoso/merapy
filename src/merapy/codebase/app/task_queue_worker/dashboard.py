@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
-# GraphQL types — mirrors candi's graphql_schema.go field names exactly
+# GraphQL types
 # ---------------------------------------------------------------------------
 
 @strawberry.type
@@ -543,7 +543,7 @@ def _build_schema(worker: "TaskQueueWorker") -> strawberry.Schema:
 def _find_static_dir() -> Path | None:
     """Find the built Next.js dashboard static files.
 
-    Lookup order (mirrors candi's embed.FS approach):
+    Lookup order:
     1. Bundled inside merapy package at dashboard_static/ — populated by
        running `make embed` in merapy-taskqueue-dashboard
     2. MERAPY_DASHBOARD_DIR env var (absolute path override)

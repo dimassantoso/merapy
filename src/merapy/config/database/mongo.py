@@ -1,4 +1,4 @@
-"""MongoDB async client. Mirrors candi's ``config/database/mongo.go``."""
+"""MongoDB async client."""
 
 from __future__ import annotations
 

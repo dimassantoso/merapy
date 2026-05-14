@@ -5,10 +5,7 @@ from typing import Protocol, runtime_checkable
 
 @runtime_checkable
 class RSAKey(Protocol):
-    """RSA keypair holder for JWT / encryption.
-
-    Mirrors candi's ``interfaces.RSAKey``.
-    """
+    """RSA keypair holder for JWT / encryption."""
 
     def public_key_pem(self) -> bytes: ...
     def private_key_pem(self) -> bytes: ...

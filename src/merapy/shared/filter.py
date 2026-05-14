@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class Filter(BaseModel):
-    """Base list/query filter. Mirrors candi's ``candishared.Filter``.
+    """Base list/query filter.
 
     Module-specific filters subclass this and add their own fields.
     Use ``offset`` for SQL pagination: ``offset = (page - 1) * limit``.

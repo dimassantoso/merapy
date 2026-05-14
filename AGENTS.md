@@ -4,7 +4,7 @@
 
 ## What this is
 
-**merapy** — Python microservice framework porting Go [candi](https://github.com/golangid/candi).
+**merapy** — Python clean-architecture microservice framework.
 GitHub: https://github.com/dimassantoso/merapy
 
 ## Key paths
@@ -16,8 +16,6 @@ GitHub: https://github.com/dimassantoso/merapy
 | Task queue dashboard (Python backend) | `src/merapy/codebase/app/task_queue_worker/dashboard.py` |
 | Embedded dashboard static files | `src/merapy/codebase/app/task_queue_worker/dashboard_static/` |
 | Dashboard UI repo | `/Users/dimas/Documents/Project/personal/merapy-taskqueue-dashboard/` |
-| candi Go source (reference) | `/Users/dimas/Documents/Project/OpenSource/candi/` |
-| candi dashboard reference | `/Users/dimas/Documents/Project/OpenSource/task-queue-worker-dashboard/` |
 | Example services | `/Users/dimas/Documents/Project/personal/{user,product}-service/` |
 
 ## Dev commands
@@ -54,7 +52,7 @@ make proto                        # generate gRPC stubs (if USE_GRPC=true)
 2. **Each service needs its own database** — shared DB causes `alembic_version` conflicts.
 3. **Task queue tables** use `TaskQueueBase` (separate from service `Base`) — must merge metadata in `alembic/env.py`.
 4. **`TaskBase` is now `TaskQueueBase`** — old name causes ImportError.
-5. **Strawberry auto-camelCase** — task queue dashboard schema uses `StrawberryConfig(auto_camel_case=False)` to match candi's snake_case field names.
+5. **Strawberry auto-camelCase** — task queue dashboard schema uses `StrawberryConfig(auto_camel_case=False)` to keep snake_case field names.
 6. **Dashboard embed** — after changing `merapy-taskqueue-dashboard`, always run `make embed` to update `dashboard_static/`.
 7. **Broker connect** — Kafka/RabbitMQ `start()` is wrapped with `asyncio.wait_for(timeout=10)` — if broker is down, service logs warning and continues.
 

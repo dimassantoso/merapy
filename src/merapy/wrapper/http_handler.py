@@ -1,4 +1,4 @@
-"""Built-in HTTP middleware + root handlers. Mirrors ``wrapper/http_handler.go``."""
+"""Built-in HTTP middleware + root handlers."""
 
 from __future__ import annotations
 
@@ -20,10 +20,7 @@ logger = get_logger(__name__)
 
 
 class _TracerLogMiddleware(BaseHTTPMiddleware):
-    """Wraps each request in an OpenTelemetry span and JSON-logs the result.
-
-    Mirrors candi's ``wrapper.HTTPMiddlewareTracer`` + ``HTTPMiddlewareLog``.
-    """
+    """Wraps each request in an OpenTelemetry span and JSON-logs the result."""
 
     async def dispatch(
         self,
@@ -67,7 +64,7 @@ def cors_middleware(env: Env) -> tuple[type[CORSMiddleware], dict[str, object]]:
 
 
 def health_response(service: str, env: str) -> HTTPResponse:
-    """Standard root-handler response. Mirrors ``HTTPHandlerDefaultRoot``."""
+    """Standard root-handler response."""
     return HTTPResponse.new(
         200,
         "service alive",

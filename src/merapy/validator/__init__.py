@@ -1,4 +1,4 @@
-"""Validation — Pydantic (struct) + jsonschema (document). Mirrors candi."""
+"""Validation — Pydantic (struct) + jsonschema (document)."""
 
 from merapy.validator.base import CompositeValidator
 from merapy.validator.json_schema import JSONSchemaValidator

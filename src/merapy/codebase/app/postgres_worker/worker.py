@@ -4,9 +4,9 @@ Each handler ``pattern`` is the NOTIFY channel name. Uses ``asyncpg``
 directly (lighter than going through SQLAlchemy for LISTEN). One connection
 listens to all channels; payload is delivered as the EventContext body.
 
-Candi exposes a higher-level "table change notification" mode that creates
-triggers per table. That's deferred for v1 — register your own triggers
-and use this worker to receive their notifications.
+A higher-level "table change notification" mode that auto-creates triggers
+per table is on the roadmap — for now, register your own triggers and use
+this worker to receive their notifications.
 """
 
 from __future__ import annotations

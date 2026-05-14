@@ -1,4 +1,4 @@
-"""Cron-driven scheduler. Mirrors candi's ``codebase/app/cron_worker``.
+"""Cron-driven scheduler.
 
 Each module registers cron handlers via its worker handler::
 

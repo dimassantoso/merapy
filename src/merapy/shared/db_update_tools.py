@@ -1,4 +1,4 @@
-"""Partial-update helper. Mirrors candi's ``candishared.DBUpdateTools``.
+"""Partial-update helper.
 
 Allows usecase code to say "only update these fields" without forcing the
 repository to know the entity shape:

@@ -1,20 +1,20 @@
 # merapy
 
-Python clean-architecture microservice framework — a Pythonic port of [candi](https://github.com/golangid/candi) (Go).
+**merapy** is a Python clean-architecture microservice framework. It gives you a structured, async-first foundation for building production services — with an interactive CLI that scaffolds projects, modules, and delivery handlers so you spend time on business logic, not boilerplate.
 
-`merapy` gives you the same factory + singleton + clean-architecture shape candi gives Go services, with an interactive CLI that scaffolds projects and modules the same way `candi -init` / `candi -add-module` does. It targets Python 3.11+ and is async-first across every layer.
+Targets **Python 3.11+**. Async-first across every layer.
 
 ---
 
 ## What you get
 
-- **One service, many transports.** REST + gRPC + GraphQL + 6 worker types (Kafka, RabbitMQ, Redis pub/sub, Cron, Postgres LISTEN, persistent TaskQueue) — all wired into a single `asyncio.gather` orchestrator with graceful shutdown.
-- **REST adapter is pluggable.** FastAPI by default. Litestar via `REST_FRAMEWORK=litestar`. Module handlers see only the `RESTRouter` Protocol — same code works under both.
-- **Clean architecture by default.** `delivery → usecase → repository → DB` separation enforced by the module template; cross-module calls route through a singleton bridge so there's never a circular import.
-- **Singletons that mirror candi's `sync.Once`** — idempotent, thread-safe, set once at boot.
-- **Code-gen markers** (`# @merapy:*`) so `merapy add-module` extends the shared usecase / repository / service files without you editing them.
-- **SQLAlchemy 2.x async + Alembic migrations + Pydantic v2 + structlog + OpenTelemetry** out of the box.
-- **Task Queue dashboard** — built-in GraphQL API + embedded Next.js UI served on `TASK_QUEUE_DASHBOARD_PORT` (default 8080). Open `http://localhost:8080` after `make run`.
+- **One service, many transports.** REST + gRPC + GraphQL + 6 worker types (Kafka, RabbitMQ, Redis pub/sub, Cron, Postgres LISTEN, persistent Task Queue) — all wired into a single `asyncio.gather` orchestrator with graceful shutdown.
+- **Pluggable REST adapter.** FastAPI by default. Litestar via `REST_FRAMEWORK=litestar`. Module handlers depend only on the abstract `RESTRouter` Protocol — same code works under both.
+- **Clean architecture enforced.** `delivery → usecase → repository → DB` separation baked into every generated module. Cross-module calls route through a singleton bridge, eliminating circular imports.
+- **Thread-safe singletons.** Dependency container, shared repository, and shared usecase are each initialised once at boot via `threading.Lock` — idempotent and safe.
+- **Code-gen markers.** `# @merapy:*` comments in generated files let `merapy add-module` extend shared usecase / repository / service files automatically, without manual edits.
+- **SQLAlchemy 2.x async + Alembic + Pydantic v2 + structlog + OpenTelemetry** out of the box.
+- **Task Queue dashboard.** Built-in GraphQL API + embedded Next.js UI served on `TASK_QUEUE_DASHBOARD_PORT` (default 8080). Open `http://localhost:8080` after `make run`.
 
 ---
 
@@ -214,7 +214,7 @@ my-service/
 ├── pyproject.toml
 ├── Makefile
 ├── .env
-├── merapy.json                 ← scaffolding config (mirrors candi.json)
+├── merapy.json                  ← scaffolding config
 └── src/
     ├── internal/
     │   ├── service.py           ← ServiceFactory wiring
@@ -241,21 +241,6 @@ my-service/
     └── configs/
         └── config.py            ← load_service_configs (DB, brokers, deps)
 ```
-
----
-
-## Task Queue Dashboard
-
-When `USE_TASK_QUEUE_WORKER=true`, the worker automatically serves a dashboard on `TASK_QUEUE_DASHBOARD_PORT` (default **8080**):
-
-- `http://localhost:8080/` — dashboard UI (embedded Next.js static build)
-- `http://localhost:8080/graphql` — GraphQL API
-
-**Features:** view all jobs, filter by task/status, retry failed jobs, delete jobs, bulk retry/clean, pagination. Auto-refreshes every 5 seconds.
-
-The dashboard UI is maintained in [`merapy-taskqueue-dashboard`](https://github.com/dimassantoso/merapy-taskqueue-dashboard) and embedded into the merapy package via `make embed`.
-
-**Task queue tables** use the same schema as candi's `task_queue_worker_jobs` — compatible with the original [task-queue-worker-dashboard](https://github.com/agungdwiprasetyo/task-queue-worker-dashboard).
 
 ---
 
@@ -291,6 +276,19 @@ Per-module clean-architecture flow:
 
 ---
 
+## Task Queue Dashboard
+
+When `USE_TASK_QUEUE_WORKER=true`, the worker automatically serves a dashboard on `TASK_QUEUE_DASHBOARD_PORT` (default **8080**):
+
+- `http://localhost:8080/` — dashboard UI (embedded Next.js static build)
+- `http://localhost:8080/graphql` — GraphQL API
+
+**Features:** view all tasks and jobs, filter by status, retry failed jobs, stop running jobs, delete jobs, bulk retry/clean, real-time updates via GraphQL subscriptions.
+
+The dashboard UI is maintained in [`merapy-taskqueue-dashboard`](https://github.com/dimassantoso/merapy-taskqueue-dashboard) and embedded into the merapy package via `make embed`.
+
+---
+
 ## Swap the REST engine
 
 ```bash
@@ -323,25 +321,6 @@ Then restart with:
 
     make run
 ```
-
----
-
-## How merapyßß compares to candi
-
-| Concept | candi (Go) | merapyßß (Python) |
-|---------|-----------|-----------------|
-| Service factory | `factory.ServiceFactory` interface | `ServiceFactory` Protocol |
-| App server factory | `factory.AppServerFactory` | async `serve()` / `shutdown()` / `name` |
-| Dependency container | `dependency.Dependency` + `stdDeps` | `Dependency` + module-level `_std_deps` |
-| Shared UOW | `sync.Once` + `SetSharedUsecase` | `threading.Lock` + `SharedSingleton[T]` |
-| Transaction in context | `RepoSQL.WithTransaction(ctx, fn)` | `with_transaction(session_factory)` via `contextvars` |
-| Response envelope | `wrapper.NewHTTPResponse(...)` | `HTTPResponse.new(...).to_response()` |
-| Code-gen markers | `// @candi:usecaseMethod` | `# @merapy:usecaseMethod` |
-| Task queue schema | `task_queue_worker_jobs` | same table name + columns |
-| Task queue dashboard | embedded via `embed.FS` | embedded via `package-data` + FastAPI StaticFiles |
-| Migrations | goose | Alembic (autogenerate) |
-| Logger / tracer | zap / OpenTracing | structlog / OpenTelemetry |
-| CLI | `candi -init` / `-add-module` | `merapy init` / `add-module` / `add-handler` |
 
 ---
 

@@ -1,9 +1,8 @@
 """Transaction propagation via :mod:`contextvars`.
 
-Mirrors candi's ``RepoSQL.WithTransaction(ctx, fn)`` where the transaction
-travels with ``context.Context``. In Python the natural carrier is a
-``ContextVar`` — set when a transaction is opened, read by repositories
-when they decide whether to start their own session.
+In Python the natural carrier is a ``ContextVar`` — set when a transaction
+is opened, read by repositories when they decide whether to start their own
+session.
 
 Behavior:
 
@@ -17,7 +16,6 @@ Behavior:
 
 ``asyncio.create_task`` does NOT inherit contextvar values by default —
 if you spawn tasks inside a transaction, the new task will not see it.
-This matches candi's behavior (goroutine = new context).
 """
 
 from __future__ import annotations

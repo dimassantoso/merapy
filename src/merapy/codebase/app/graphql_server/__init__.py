@@ -1,4 +1,4 @@
-"""GraphQL server (strawberry-graphql). Mirrors candi's ``graphql_server``."""
+"""GraphQL server (strawberry-graphql)."""
 
 from merapy.codebase.app.graphql_server.server import GraphQLServer
 

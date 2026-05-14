@@ -1,4 +1,4 @@
-"""Redis-backed distributed lock. Mirrors candi's ``candiutils.RedisLocker``.
+"""Redis-backed distributed lock.
 
 Uses the standard ``SET key value NX PX`` pattern with a randomly generated
 token to ensure only the lock owner can release it.
@@ -33,7 +33,7 @@ class RedisLocker:
         """Try to acquire ``key`` for ``ttl`` seconds. Yields True on success.
 
         Non-blocking: if the lock is held, yields False immediately. Caller
-        decides whether to retry. Mirrors candi's behavior.
+        decides whether to retry.
         """
         token = secrets.token_hex(16)
         full_key = self._prefix + key

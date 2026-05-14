@@ -1,10 +1,8 @@
-"""Top-level orchestrator. Mirrors candi's ``codebase/app/app.go``.
+"""Top-level orchestrator.
 
 Starts every :class:`AppServerFactory` as an asyncio task. On SIGINT /
-SIGTERM, calls ``shutdown()`` on each with a hard timeout (default 60s,
-matching candi) before cancelling outstanding tasks.
-
-Async equivalent of candi's goroutine fan-out.
+SIGTERM, calls ``shutdown()`` on each with a hard timeout (default 60s)
+before cancelling outstanding tasks.
 """
 
 from __future__ import annotations

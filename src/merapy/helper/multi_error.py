@@ -6,8 +6,7 @@ from typing import Any
 class MultiError(Exception):
     """Aggregated field-level error.
 
-    Mirrors candi's ``candihelper.MultiError``. Serialises to a JSON-friendly
-    mapping ``{field: [messages]}`` via ``to_map()``.
+    Serialises to a JSON-friendly mapping ``{field: [messages]}`` via ``to_map()``.
     """
 
     def __init__(self, errors: dict[str, list[str]] | None = None) -> None:

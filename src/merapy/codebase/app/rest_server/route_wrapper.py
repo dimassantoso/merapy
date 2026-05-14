@@ -1,8 +1,7 @@
 """FastAPI adapter for :class:`RESTRouter`.
 
-Mirrors candi's ``codebase/app/rest_server/route_wrapper.go``. Modules call the
-``RESTRouter`` interface only; the wrapper translates ``group`` / ``get`` / etc.
-into FastAPI ``APIRouter`` operations.
+Modules call the ``RESTRouter`` interface only; the wrapper translates
+``group`` / ``get`` / etc. into FastAPI ``APIRouter`` operations.
 
 Child routers are wired into their parents at :meth:`finalize` time — this
 defers the ``include_router`` call until all module ``mount()`` calls have

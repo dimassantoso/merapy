@@ -1,13 +1,15 @@
-"""Persistent task-queue worker. Minimal SQL-backed version.
+"""Persistent task-queue worker.
 
-A simplified port of candi's ``task_queue_worker``. v1 supports:
+v1 supports:
 
-* Persisting jobs to a ``merapy_tasks`` table (SQLAlchemy).
-* Polling for due jobs.
+* Persisting jobs to SQL (SQLAlchemy).
+* Poll-based job dispatch with retry and backoff.
+* Status: QUEUEING / RETRYING / SUCCESS / FAILURE / STOPPED.
+"""* Polling for due jobs.
 * Retry on failure with exponential backoff.
 * Status: pending / running / done / failed.
 
-NOT included in v1 (candi's full feature set):
+NOT included in v1 (roadmap):
 
 * GraphQL admin UI.
 * Mongo / Redis backends — SQL only.

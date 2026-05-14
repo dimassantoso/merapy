@@ -1,4 +1,4 @@
-"""OpenTelemetry tracer init + start_trace helpers. Mirrors candi's OpenTracing wrapper."""
+"""OpenTelemetry tracer init + start_trace helpers."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ def get_tracer(name: str = "merapy") -> trace.Tracer:
 async def start_trace(name: str) -> AsyncIterator[trace.Span]:
     """Async context manager wrapping ``tracer.start_as_current_span``.
 
-    Mirrors candi's ``tracer.StartTraceWithContext`` ergonomics::
+    Async context manager wrapping ``tracer.start_as_current_span``::
 
         async with start_trace("ExpenseUsecase:GetAll") as span:
             span.set_attribute("filter.search", filter.search or "")

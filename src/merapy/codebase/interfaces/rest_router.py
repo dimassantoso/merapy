@@ -21,8 +21,7 @@ class RESTRouter(Protocol):
     """Framework-agnostic router contract.
 
     Modules call this interface only; the concrete adapter (FastAPI APIRouter
-    or Litestar Router) is selected at boot. Mirrors candi's
-    ``interfaces.RESTRouter`` which wraps chi / echo / fiber.
+    or Litestar Router) is selected at boot.
     """
 
     def use(self, *middlewares: HTTPMiddleware) -> None: ...

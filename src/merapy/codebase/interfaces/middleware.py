@@ -31,10 +31,9 @@ to a route or group."""
 
 @runtime_checkable
 class Middleware(Protocol):
-    """Composite middleware bundle.
+    """Composite middleware bundle (HTTP + gRPC + GraphQL).
 
-    Mirrors candi's ``interfaces.Middleware`` (HTTP + gRPC + GraphQL). The
-    HTTP side returns adapter-friendly guards; the broker / worker side
+    The HTTP side returns adapter-friendly guards; the broker / worker side
     returns plain callables that decorate a ``WorkerHandlerFunc``.
     """
 

@@ -1,9 +1,4 @@
-"""SQLAlchemy models for the task-queue worker.
-
-Table names and column names mirror candi's task_queue_worker SQL schema
-(persistent_sql_tools.go) so the merapy-taskqueue-dashboard can connect
-to either a candi or merapy service without schema changes.
-"""
+"""SQLAlchemy models for the task-queue worker."""
 
 from __future__ import annotations
 
@@ -34,7 +29,7 @@ def _new_id() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Status constants — match candi's JobStatusEnum exactly
+# Status constants
 # ---------------------------------------------------------------------------
 
 class JobStatus:
@@ -50,7 +45,7 @@ class JobStatus:
 # ---------------------------------------------------------------------------
 
 class Job(TaskQueueBase):
-    """Mirrors candi's ``task_queue_worker_jobs`` table."""
+    """Main job record."""
 
     __tablename__ = "task_queue_worker_jobs"
 
@@ -92,10 +87,7 @@ class Job(TaskQueueBase):
 # ---------------------------------------------------------------------------
 
 class JobSummary(TaskQueueBase):
-    """Mirrors candi's ``task_queue_worker_job_summaries`` table.
-
-    ``id`` is the task_name — one row per registered task.
-    """
+    """Per-task job counters. ``id`` is the task_name — one row per registered task."""
 
     __tablename__ = "task_queue_worker_job_summaries"
 
@@ -114,7 +106,7 @@ class JobSummary(TaskQueueBase):
 # ---------------------------------------------------------------------------
 
 class JobHistory(TaskQueueBase):
-    """Mirrors candi's ``task_queue_worker_job_histories`` table."""
+    """Retry history per job."""
 
     __tablename__ = "task_queue_worker_job_histories"
 
@@ -139,7 +131,7 @@ class JobHistory(TaskQueueBase):
 # ---------------------------------------------------------------------------
 
 class TaskQueueConfiguration(TaskQueueBase):
-    """Mirrors candi's ``task_queue_worker_configurations`` table."""
+    """Runtime configuration key/value store."""
 
     __tablename__ = "task_queue_worker_configurations"
 

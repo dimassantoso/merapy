@@ -1,8 +1,4 @@
-"""Enums and lightweight value types shared across the framework.
-
-Mirrors candi's ``codebase/factory/types/const.go`` (Server/Worker/Module/Service)
-and ``codebase/factory/types/worker_type.go`` (WorkerHandler / WorkerHandlerGroup).
-"""
+"""Enums and lightweight value types shared across the framework."""
 
 from __future__ import annotations
 
@@ -38,8 +34,8 @@ class Service(str):
 class EventContext:
     """Per-event execution context handed to worker handlers.
 
-    Mirrors candi's ``candishared.EventContext``. The body is materialized as
-    ``bytes`` to keep the type async-friendly across all worker transports.
+    The body is materialized as ``bytes`` to keep the type async-friendly
+    across all worker transports.
     """
 
     worker_type: str
@@ -99,10 +95,7 @@ class WorkerHandlerGroup:
 
 @dataclass(slots=True)
 class PublisherArgument:
-    """Arguments passed to a broker's ``Publisher.publish_message``.
-
-    Mirrors candi's ``candishared.PublisherArgument``.
-    """
+    """Arguments passed to a broker's ``Publisher.publish_message``."""
 
     topic: str
     key: str = ""

@@ -1,7 +1,7 @@
 """Redis async pool + Cache implementation.
 
-Mirrors candi's ``config/database/redis.go``. One ``Redis`` client per
-read / write DSN; a shared ``Cache`` view over the write client.
+One ``Redis`` client per read / write DSN; a shared ``Cache`` view over
+the write client.
 """
 
 from __future__ import annotations

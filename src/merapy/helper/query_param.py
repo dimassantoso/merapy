@@ -12,8 +12,7 @@ T = TypeVar("T", bound=BaseModel)
 def parse_from_query_param(params: Mapping[str, Any], model_cls: type[T]) -> T:
     """Parse a query-param mapping into a Pydantic model.
 
-    Mirrors candi's ``candihelper.ParseFromQueryParam``. Errors are converted to
-    ``MultiError`` so callers get a stable error envelope.
+    Errors are converted to ``MultiError`` so callers get a stable error envelope.
     """
     data = {k: v for k, v in params.items() if v is not None and v != ""}
     try:

@@ -1,8 +1,7 @@
 """Repository-layer helpers shipped by the framework.
 
 The concrete ``RepoSQL`` / ``RepoMongo`` aggregators are *generated* in
-``pkg/shared/repository/`` per service (mirroring candi). The framework only
-provides:
+``pkg/shared/repository/`` per service. The framework provides:
 
 * :class:`SharedSingleton` — generic ``SetShared / GetShared`` mechanic.
 * :func:`with_transaction` — contextvar-based transaction propagation.

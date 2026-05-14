@@ -5,9 +5,7 @@ Replaces a ``# @merapy:<name>`` comment with::
     # @merapy:<name>
     <new code>
 
-The marker stays in place so subsequent additions can keep appending. This
-mirrors candi's string-replace strategy from
-``project_generator_add_handler.go``.
+The marker stays in place so subsequent additions can keep appending.
 """
 
 from __future__ import annotations

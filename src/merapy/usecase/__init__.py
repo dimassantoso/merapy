@@ -3,8 +3,8 @@
 The framework provides:
 
 * :class:`BaseUsecase` — convenience base with all the deps wired.
-* :class:`UsecaseSingleton` — the shared UOW holder (mirrors candi's
-  ``SetSharedUsecase`` / ``GetSharedUsecase`` + ``common.SetCommonUsecase``).
+* :class:`UsecaseSingleton` — the shared UOW holder (``set_shared_usecase`` /
+  ``get_shared_usecase`` + ``set_common_usecase``).
 
 The concrete ``Usecase`` aggregator and the cross-module ``Common`` bridge
 are generated per service in ``pkg/shared/usecase/`` (see the CLI templates).

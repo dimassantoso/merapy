@@ -1,13 +1,11 @@
 """Dependency container — module-level singleton.
 
-Mirrors candi's ``codebase/factory/dependency/dependency.go``. The container
-holds every shared resource: DBs, cache, brokers, middleware, validator,
+Holds every shared resource: DBs, cache, brokers, middleware, validator,
 locker, RSA key, and a free-form ``extended`` bag.
 
-Construction is via :class:`DependencyBuilder` (mirrors candi's Option
-functor pattern). The result is stashed in a module-level ``_std_deps``
-singleton so any code can pull deps from ``get_*()`` free functions —
-matching candi's ``dependency.GetMiddleware()``-style access.
+Construction is via :class:`DependencyBuilder` (fluent option pattern).
+The result is stashed in a module-level ``_std_deps`` singleton so any code
+can pull deps from ``get_*()`` free functions.
 """
 
 from __future__ import annotations
@@ -105,8 +103,7 @@ class Dependency:
 class DependencyBuilder:
     """Fluent builder for the module-level singleton.
 
-    Mirrors candi's ``InitDependency(opts...)``. Calling :meth:`build` twice
-    is idempotent — the second call short-circuits, matching ``sync.Once``.
+    Calling :meth:`build` twice is idempotent — the second call short-circuits.
     """
 
     def __init__(self) -> None:
@@ -170,7 +167,7 @@ class DependencyBuilder:
         return Dependency()
 
 
-# Free-function getters — mirror candi's ``dependency.GetMiddleware()`` style.
+# Free-function getters — convenience accessors for the module-level singleton.
 
 
 def get_dependency() -> Dependency:

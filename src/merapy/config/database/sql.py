@@ -1,7 +1,7 @@
 """SQLAlchemy 2.x async engine pair.
 
-Mirrors candi's ``config/database/sql.go``. Returns a single object that
-implements :class:`SQLDatabase` and is also a :class:`Closer`.
+Returns a single object that implements :class:`SQLDatabase` and is also
+a :class:`Closer`.
 
 Use ``read_engine()`` for selects, ``write_engine()`` for writes, and
 ``session_factory()`` for ``async with sf() as session: ...`` blocks.

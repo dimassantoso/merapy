@@ -1,4 +1,4 @@
-"""Cron / interval scheduler. Mirrors candi's ``cron_worker``."""
+"""Cron / interval scheduler."""
 
 from merapy.codebase.app.cron_worker.worker import CronWorker
 

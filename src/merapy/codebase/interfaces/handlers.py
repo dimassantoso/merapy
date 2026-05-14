@@ -40,8 +40,8 @@ class WorkerHandler(Protocol):
 class ServerHandler(Protocol):
     """Generic extension point for custom server types (e.g. Telegram bot).
 
-    Mirrors candi's ``interfaces.ServerHandler``. The ``server_type`` keyspace
-    is open — modules may register handlers for arbitrary custom servers.
+    The ``server_type`` keyspace is open — modules may register handlers for
+    arbitrary custom servers.
     """
 
     def server_type(self) -> Server | str: ...

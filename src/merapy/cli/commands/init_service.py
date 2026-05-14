@@ -1,4 +1,4 @@
-"""``merapy init`` — scaffold a new service (interactive, mirrors candi -init)."""
+"""``merapy init`` — scaffold a new service (interactive)."""
 
 from __future__ import annotations
 
@@ -12,11 +12,11 @@ from merapy.cli.render import render_tree
 
 
 # ---------------------------------------------------------------------------
-# Interactive prompts (mirrors candi's cli_parser.go readInput() flow)
+# Interactive prompts
 # ---------------------------------------------------------------------------
 
 def _ask(label: str) -> str:
-    """Print *label* then collect input at a '>> ' prompt (mirrors candi style)."""
+    """Print *label* then collect input at a '>> ' prompt."""
     click.echo(f"\n\033[1m{label}\033[0m")
     try:
         return input(">> ").strip()
@@ -163,7 +163,7 @@ def _build_context(
 # Command
 # ---------------------------------------------------------------------------
 
-@click.command(help="Scaffold a new merapy service (interactive, mirrors candi -init).")
+@click.command(help="Scaffold a new merapy service (interactive).")
 def init_service() -> None:
     try:
         import os
@@ -212,7 +212,7 @@ def init_service() -> None:
         if "mongo" in dependencies:
             _inject_repository_mongo_markers(target, module_snake, module_pascal)
 
-    # Save merapy.json — mirrors candi.json; read by add-module / add-handler.
+    # Save merapy.json — read by add-module / add-handler.
     config_data = {
         "service_name": service_name,
         "package": to_snake(service_name),

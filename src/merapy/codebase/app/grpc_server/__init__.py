@@ -1,4 +1,4 @@
-"""gRPC server. Mirrors candi's ``grpc_server``."""
+"""gRPC server."""
 
 from merapy.codebase.app.grpc_server.server import GRPCServer
 

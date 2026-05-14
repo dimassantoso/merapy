@@ -1,4 +1,4 @@
-"""Boot lifecycle. Mirrors candi's ``config/config.go``.
+"""Boot lifecycle.
 
 Owns the load → connect → use → close sequence. Holds the list of
 ``Closer`` instances returned by component constructors so that

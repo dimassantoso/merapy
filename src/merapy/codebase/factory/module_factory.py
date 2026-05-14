@@ -16,8 +16,8 @@ from merapy.codebase.types import Server, Worker
 class ModuleFactory(Protocol):
     """A bundle of delivery handlers for one bounded context.
 
-    Mirrors candi's ``factory.ModuleFactory``. Any accessor may return ``None``
-    when the module doesn't expose that delivery surface.
+    Any accessor may return ``None`` when the module doesn't expose that
+    delivery surface.
     """
 
     @property

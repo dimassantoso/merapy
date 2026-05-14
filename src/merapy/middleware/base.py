@@ -21,7 +21,7 @@ _AUTHORIZATION_HEADER = "authorization"
 
 
 class MiddlewareImpl:
-    """Mirrors candi's ``middleware.NewMiddlewareWithOption``.
+    """Composite middleware implementation.
 
     Exposes ``http_*_auth`` guards as plain async callables that read the
     request, validate the credential, and stash the resulting
@@ -125,7 +125,7 @@ class MiddlewareImpl:
 
     def http_cache(self) -> HTTPGuard:
         """No-op guard placeholder. Implement via dedicated ASGI middleware
-        if response caching is needed — mirrors candi's optional cache MW.
+        if response caching is needed.
         """
 
         async def guard(request: Request) -> None:  # noqa: ARG001
@@ -146,9 +146,7 @@ class MiddlewareImpl:
 
 
 class MiddlewareBuilder:
-    """Fluent builder for :class:`MiddlewareImpl`. Mirrors candi's
-    ``middleware.NewMiddlewareWithOption(...opts)``.
-    """
+    """Fluent builder for :class:`MiddlewareImpl`."""
 
     def __init__(self) -> None:
         self._token: TokenValidator | None = None

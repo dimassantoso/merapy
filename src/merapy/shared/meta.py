@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class Meta(BaseModel):
-    """Pagination metadata. Mirrors candi's ``candishared.Meta``."""
+    """Pagination metadata returned by list endpoints."""
 
     page: int = Field(default=1, ge=1)
     limit: int = Field(default=10, ge=1)

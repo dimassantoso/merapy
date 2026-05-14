@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class TokenClaim(BaseModel):
-    """JWT / bearer-token claim payload. Mirrors candi's ``candishared.TokenClaim``."""
+    """JWT / bearer-token claim payload."""
 
     subject: str = Field(default="", alias="sub")
     audience: list[str] = Field(default_factory=list, alias="aud")

@@ -1,4 +1,4 @@
-"""Generic helpers — mirrors candi's ``candihelper`` package."""
+"""Generic helpers for merapy services."""
 
 from merapy.helper.multi_error import MultiError
 from merapy.helper.query_param import parse_from_query_param

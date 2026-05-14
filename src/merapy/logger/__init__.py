@@ -1,4 +1,4 @@
-"""structlog-based JSON logger. Mirrors candi's zap setup."""
+"""structlog-based JSON logger."""
 
 from __future__ import annotations
 

@@ -1,11 +1,9 @@
 """Shared usecase singletons.
 
-Mirrors candi's:
-
-* ``SetSharedUsecase(deps)`` / ``GetSharedUsecase()`` — single UOW aggregating
+* ``set_shared_usecase(deps)`` / ``get_shared_usecase()`` — single UOW aggregating
   every module's usecase implementation.
-* ``common.SetCommonUsecase(uc)`` / ``common.GetCommonUsecase()`` — bridge so
-  module A can call module B's usecase without an import cycle.
+* ``set_common_usecase(uc)`` / ``common_usecase()`` — bridge so module A can call
+  module B's usecase without an import cycle.
 
 The framework ships the *plumbing*; the generated ``pkg/shared/usecase/usecase.py``
 defines the concrete ``Usecase`` aggregator class with one accessor per module.

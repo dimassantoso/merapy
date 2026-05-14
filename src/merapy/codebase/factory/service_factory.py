@@ -14,8 +14,7 @@ if TYPE_CHECKING:
 class ServiceFactory(Protocol):
     """Wire of modules + apps + dependency container.
 
-    Mirrors candi's ``factory.ServiceFactory``. The generated service in
-    ``internal/service.py`` is the concrete implementation.
+    The generated ``internal/service.py`` is the concrete implementation.
     """
 
     @property

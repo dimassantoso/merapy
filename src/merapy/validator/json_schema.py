@@ -1,8 +1,7 @@
 """JSON-Schema validator with in-memory schema storage.
 
-Mirrors candi's ``validator/json_schema.go``. Schemas are loaded from a
-directory once at boot and looked up by their ``$id`` (falling back to
-the filename stem).
+Schemas are loaded from a directory once at boot and looked up by their
+``$id`` (falling back to the filename stem).
 """
 
 from __future__ import annotations

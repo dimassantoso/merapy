@@ -15,8 +15,7 @@ if TYPE_CHECKING:
 class SQLDatabase(Closer, Protocol):
     """Read/write SQLAlchemy AsyncEngine pair.
 
-    Mirrors candi's ``interfaces.SQLDatabase``. ``read_engine`` may equal
-    ``write_engine`` when no replica is configured.
+    ``read_engine`` may equal ``write_engine`` when no replica is configured.
     """
 
     def read_engine(self) -> "AsyncEngine": ...

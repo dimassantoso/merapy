@@ -7,9 +7,8 @@ from typing import Protocol, runtime_checkable
 class AppServerFactory(Protocol):
     """One concurrent server / worker in the running process.
 
-    Mirrors candi's ``factory.AppServerFactory``. ``serve()`` blocks until the
-    server is told to stop; ``shutdown()`` is invoked with a deadline by the
-    orchestrator. ``name`` is used in logs.
+    ``serve()`` blocks until the server is told to stop; ``shutdown()`` is
+    invoked with a deadline by the orchestrator. ``name`` is used in logs.
     """
 
     @property

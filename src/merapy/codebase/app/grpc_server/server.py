@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-_MAX_MESSAGE_SIZE = 200 * 1024 * 1024  # 200 MiB — matches candi default
+_MAX_MESSAGE_SIZE = 200 * 1024 * 1024  # 200 MiB
 
 
 class GRPCServer:

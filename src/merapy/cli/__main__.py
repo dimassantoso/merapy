@@ -1,7 +1,7 @@
 """``merapy`` CLI entry point.
 
-Running ``merapy`` with no subcommand shows an interactive menu (mirrors
-candi's ``What do you want?`` prompt). Named subcommands also work directly:
+Running ``merapy`` with no subcommand shows an interactive menu.
+Named subcommands also work directly:
 ``merapy init``, ``merapy add-module``, ``merapy add-handler``.
 """
 
@@ -17,13 +17,14 @@ from merapy.cli.commands.add_module import add_module
 from merapy.cli.commands.init_service import init_service
 
 _BANNER = (
-    "\033[32;1m\n"
-    " _  __  ___  ____  _  _  _  _  ___  ____\n"
-    "| |/ / / _ \\|  _ \\| || || \\| ||_ _|/ ___|\n"
-    "| ' / | |_| | |_) | || || .  | | | \\___ \\\n"
-    "| . \\ |  _  |  __/  \\/ | | |\\  | | |  ___) |\n"
-    "|_|\\_\\|_| |_|_|     \\/  |_| \\_||___||____/\n"
-    "\033[0m"
+    "\n"
+    "\033[34;1m███╗   ███╗\033[33;1m███████╗\033[34;1m██████╗ \033[33;1m █████╗ \033[34;1m██████╗ \033[33;1m██╗   ██╗\033[0m\n"
+    "\033[34;1m████╗ ████║\033[33;1m██╔════╝\033[34;1m██╔══██╗\033[33;1m██╔══██╗\033[34;1m██╔══██╗\033[33;1m╚██╗ ██╔╝\033[0m\n"
+    "\033[34;1m██╔████╔██║\033[33;1m█████╗  \033[34;1m██████╔╝\033[33;1m███████║\033[34;1m██████╔╝\033[33;1m ╚████╔╝ \033[0m\n"
+    "\033[34;1m██║╚██╔╝██║\033[33;1m██╔══╝  \033[34;1m██╔══██╗\033[33;1m██╔══██║\033[34;1m██╔═══╝ \033[33;1m  ╚██╔╝  \033[0m\n"
+    "\033[34;1m██║ ╚═╝ ██║\033[33;1m███████╗\033[34;1m██║  ██║\033[33;1m██║  ██║\033[34;1m██║     \033[33;1m   ██║   \033[0m\n"
+    "\033[34;1m╚═╝     ╚═╝\033[33;1m╚══════╝\033[34;1m╚═╝  ╚═╝\033[33;1m╚═╝  ╚═╝\033[34;1m╚═╝     \033[33;1m   ╚═╝   \033[0m\n"
+    "\033[2m  Python clean-architecture microservice framework\033[0m\n"
 )
 
 _MENU = """\033[1mWhat do you want?
@@ -101,7 +102,7 @@ def _run_add_handler(ctx: click.Context) -> None:
 def cli(ctx: click.Context) -> None:
     if ctx.invoked_subcommand is not None:
         return
-    # No subcommand — show banner + interactive menu like candi.
+    # No subcommand — show banner + interactive menu.
     click.echo(_BANNER)
     while True:
         click.echo(_MENU)

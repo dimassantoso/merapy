@@ -1,8 +1,8 @@
 """Base for module usecases.
 
-Mirrors candi's per-module ``XUsecaseImpl`` struct. Holds the common deps:
-SQL/Mongo repositories (via the shared UOW), cache, locker, publisher map,
-and a late-bound reference to the cross-module ``common.Usecase`` bridge.
+Holds the common deps: SQL/Mongo repositories (via the shared UOW), cache,
+locker, publisher map, and a late-bound reference to the cross-module
+``common.Usecase`` bridge.
 
 Generated usecases subclass this and implement the module-specific
 interface; the constructor returns ``(usecase, set_shared_uc_func)`` so the
@@ -76,7 +76,7 @@ class BaseUsecase:
 
 
 UsecaseConstructor = Callable[[Dependency], tuple["BaseUsecase", Callable[[Any], None]]]
-"""Signature mirroring candi's ``NewXUsecase(deps) (X, func(shared))``.
+"""Constructor signature: ``(deps) -> (usecase, wire_func)``.
 
 The second return value is invoked by the UOW init with the cross-module
 ``common.Usecase`` bridge so the new usecase can call sibling modules

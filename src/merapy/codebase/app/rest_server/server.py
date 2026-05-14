@@ -1,8 +1,7 @@
 """FastAPI-based REST :class:`AppServerFactory`.
 
-Mirrors candi's ``codebase/app/rest_server/rest_server.go``. Iterates
-``service.modules()``, calls ``module.rest_handler().mount(router)`` on each,
-attaches built-in middleware (CORS / tracer), and runs uvicorn.
+Iterates ``service.modules()``, calls ``module.rest_handler().mount(router)``
+on each, attaches built-in middleware (CORS / tracer), and runs uvicorn.
 """
 
 from __future__ import annotations

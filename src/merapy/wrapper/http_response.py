@@ -1,4 +1,4 @@
-"""Standard JSON response envelope. Mirrors candi's ``wrapper.NewHTTPResponse``.
+"""Standard JSON response envelope.
 
 Always returns the shape::
 

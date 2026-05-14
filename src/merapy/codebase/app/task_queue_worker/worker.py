@@ -1,8 +1,4 @@
-"""Poll-based task-queue worker.
-
-Uses the same table schema as candi's task_queue_worker so the
-merapy-taskqueue-dashboard can connect to either implementation.
-"""
+"""Poll-based task-queue worker."""
 
 from __future__ import annotations
 
@@ -60,14 +56,14 @@ class TaskQueueWorker:
             sql_db = get_dependency().sql_db()
             mongo_db = get_dependency().mongo_db()
 
-            # Mirror candi's persistent priority: Mongo → SQL → error.
+            # Persistent priority: Mongo → SQL → error.
             # NOTE: Mongo persistent is not yet implemented — falls back to SQL.
             if mongo_db is not None and sql_db is None:
                 logger.warning(
                     "task_queue.mongo_not_supported",
                     message=(
-                        "Task queue worker prefers MongoDB (like candi) but kapynis "
-                        "currently only supports SQL persistent. "
+                        "Task queue worker prefers MongoDB but currently "
+                        "only supports SQL persistent. "
                         "Add SQL_DSN_WRITE to .env to enable the task queue."
                     ),
                 )
@@ -91,7 +87,7 @@ class TaskQueueWorker:
                 dashboard=f"http://localhost:{env.task_queue_dashboard_port}",
             )
 
-            # Ensure a summary row exists for every registered task (mirrors candi's prepare()).
+            # Ensure a summary row exists for every registered task.
             await self._init_summaries()
 
             while not self._stop.is_set():
@@ -116,7 +112,6 @@ class TaskQueueWorker:
     async def _init_summaries(self) -> None:
         """Ensure a summary row exists for every registered task.
 
-        Mirrors candi's prepare() which calls UpdateSummary for each task.
         This makes task names visible in the dashboard immediately at startup.
         """
         from merapy.codebase.app.task_queue_worker.model import Job, JobSummary, JobStatus

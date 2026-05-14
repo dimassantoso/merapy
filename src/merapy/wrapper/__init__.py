@@ -1,4 +1,4 @@
-"""Response envelope + built-in HTTP middleware. Mirrors candi's ``wrapper``."""
+"""Response envelope + built-in HTTP middleware."""
 
 from merapy.wrapper.http_response import HTTPResponse
 from merapy.wrapper.http_handler import (

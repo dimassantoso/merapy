@@ -1,4 +1,4 @@
-"""Reusable utilities (locker, etc.) — mirrors candi's ``candiutils`` package."""
+"""Reusable utilities (locker, etc.)."""
 
 from merapy.utils.redis_locker import RedisLocker
 

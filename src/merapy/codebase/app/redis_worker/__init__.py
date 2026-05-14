@@ -1,4 +1,4 @@
-"""Redis pub/sub subscriber worker. Mirrors candi's ``redis_worker``."""
+"""Redis pub/sub subscriber worker."""
 
 from merapy.codebase.app.redis_worker.worker import RedisWorker
 

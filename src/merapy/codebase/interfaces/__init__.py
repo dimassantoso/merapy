@@ -1,7 +1,7 @@
 """Public Protocols used across merapy.
 
-Mirrors the ``codebase/interfaces/`` package in candi. Every cross-cutting
-contract lives here so module code never depends on a concrete implementation.
+Every cross-cutting contract lives here so module code never depends on a
+concrete implementation.
 """
 
 from merapy.codebase.interfaces.broker import Broker, Publisher

@@ -1,4 +1,4 @@
-"""RabbitMQ consumer worker. Mirrors candi's ``rabbitmq_worker``."""
+"""RabbitMQ consumer worker."""
 
 from merapy.codebase.app.rabbitmq_worker.worker import RabbitMQWorker
 

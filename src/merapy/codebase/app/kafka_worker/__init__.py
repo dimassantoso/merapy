@@ -1,4 +1,4 @@
-"""Kafka consumer worker. Mirrors candi's ``kafka_worker``."""
+"""Kafka consumer worker."""
 
 from merapy.codebase.app.kafka_worker.worker import KafkaWorker
 
