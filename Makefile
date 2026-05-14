@@ -16,14 +16,14 @@ test-integration:
 	pytest -v -k integration
 
 lint:
-	ruff check kapynis tests
+	ruff check merapy tests
 
 format:
-	ruff format kapynis tests
-	ruff check --fix kapynis tests
+	ruff format merapy tests
+	ruff check --fix merapy tests
 
 typecheck:
-	mypy kapynis
+	mypy merapy
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
