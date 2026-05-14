@@ -13,7 +13,7 @@ from merapy.codebase.app._worker_base import collect_handlers
 from merapy.codebase.factory.dependency import get_dependency
 from merapy.codebase.types import EventContext, Worker, WorkerHandlerEntry
 from merapy.logger import get_logger
-from merapy.tracer import start_trace
+from merapy.tracer import bind_trace_context, get_trace_url, start_trace_from_header
 
 if TYPE_CHECKING:
     from merapy.codebase.factory.service_factory import ServiceFactory
@@ -103,10 +103,18 @@ class RedisWorker:
                     if entry.disable_trace:
                         await entry.handler(ctx)
                     else:
-                        async with start_trace(f"RedisSub:{module}:{entry.pattern}") as span:
+                        async with start_trace_from_header(
+                            f"RedisSub:{module}:{entry.pattern}", {}
+                        ) as span:
                             span.set_attribute("channel", channel)
+                            span.set_attribute("redis.pattern", entry.pattern)
                             span.set_attribute("module", module)
+                            bind_trace_context()
                             await entry.handler(ctx)
+
+                        trace_url = get_trace_url()
+                        if trace_url:
+                            logger.info("redis_sub > trace_url", url=trace_url)
                 except Exception:
                     logger.exception("redis_sub.handler_failed", module=module, channel=channel)
 

@@ -24,7 +24,7 @@ from croniter import croniter
 from merapy.codebase.app._worker_base import collect_handlers
 from merapy.codebase.types import EventContext, Worker, WorkerHandlerEntry
 from merapy.logger import get_logger
-from merapy.tracer import start_trace
+from merapy.tracer import bind_trace_context, get_trace_url, start_trace_from_header
 
 if TYPE_CHECKING:
     from merapy.codebase.factory.service_factory import ServiceFactory
@@ -101,10 +101,18 @@ class CronWorker:
                 if entry.disable_trace:
                     await self._invoke(module, entry, ctx)
                 else:
-                    async with start_trace(f"Cron:{module}:{entry.pattern}") as span:
+                    # Empty headers → always a new root span (no upstream trace)
+                    async with start_trace_from_header(
+                        f"Cron:{module}:{entry.pattern}", {}
+                    ) as span:
                         span.set_attribute("cron.pattern", entry.pattern)
-                        span.set_attribute("module", module)
+                        span.set_attribute("cron.module", module)
+                        bind_trace_context()
                         await self._invoke(module, entry, ctx)
+
+                    trace_url = get_trace_url()
+                    if trace_url:
+                        logger.info("cron > trace_url", url=trace_url)
 
     async def _invoke(self, module: str, entry: WorkerHandlerEntry, ctx: EventContext) -> None:
         try:

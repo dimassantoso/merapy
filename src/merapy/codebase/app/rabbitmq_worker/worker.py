@@ -16,7 +16,7 @@ import aio_pika
 from merapy.codebase.app._worker_base import collect_handlers
 from merapy.codebase.types import EventContext, Worker, WorkerHandlerEntry
 from merapy.logger import get_logger
-from merapy.tracer import start_trace
+from merapy.tracer import bind_trace_context, get_trace_url, log_to_span, start_trace_from_header
 
 if TYPE_CHECKING:
     from merapy.codebase.factory.service_factory import ServiceFactory
@@ -96,12 +96,13 @@ class RabbitMQWorker:
     ) -> None:
         assert self._semaphore is not None
         async with self._semaphore:
+            msg_headers = {k: str(v) for k, v in (message.headers or {}).items()}
             ctx = EventContext(
                 worker_type=Worker.RABBITMQ.value,
                 handler_route=message.routing_key or "",
                 key=message.message_id or "",
                 body=message.body,
-                headers={k: str(v) for k, v in (message.headers or {}).items()},
+                headers=msg_headers,
             )
             any_failed = False
             for module, entry in handlers:
@@ -109,10 +110,20 @@ class RabbitMQWorker:
                     if entry.disable_trace:
                         await entry.handler(ctx)
                     else:
-                        async with start_trace(f"RabbitMQ:{module}:{entry.pattern}") as span:
+                        # Extract W3C traceparent from AMQP message headers
+                        async with start_trace_from_header(
+                            f"RabbitMQ:{module}:{entry.pattern}", msg_headers
+                        ) as span:
                             span.set_attribute("queue", entry.pattern)
+                            span.set_attribute("rabbitmq.routing_key", message.routing_key or "")
                             span.set_attribute("module", module)
+                            log_to_span("rabbitmq.message", body=message.body.decode("utf-8", errors="replace")[:4096])
+                            bind_trace_context()
                             await entry.handler(ctx)
+
+                        trace_url = get_trace_url()
+                        if trace_url:
+                            logger.info("rabbitmq > trace_url", url=trace_url)
                 except Exception:
                     any_failed = True
                     logger.exception("rabbitmq.handler_failed", module=module, queue=entry.pattern)

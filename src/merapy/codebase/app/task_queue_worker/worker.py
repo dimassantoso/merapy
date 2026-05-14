@@ -15,7 +15,7 @@ from merapy.codebase.app.task_queue_worker.model import (
 from merapy.codebase.factory.dependency import get_dependency
 from merapy.codebase.types import EventContext, Worker, WorkerHandlerEntry
 from merapy.logger import get_logger
-from merapy.tracer import start_trace
+from merapy.tracer import bind_trace_context, get_trace_id, get_trace_url, log_to_span, start_trace
 
 if TYPE_CHECKING:
     from merapy.codebase.factory.service_factory import ServiceFactory
@@ -206,7 +206,24 @@ class TaskQueueWorker:
                         async with start_trace(f"TaskQueue:{module}:{job.task_name}") as span:
                             span.set_attribute("task.name", job.task_name)
                             span.set_attribute("task.id", job.id)
+                            span.set_attribute("task.retries", job.retries)
+                            span.set_attribute("task.max_retry", job.max_retry)
+                            log_to_span("task.arguments", args=job.arguments)
+
+                            # Persist trace_id to job record so it's visible in dashboard
+                            trace_id = get_trace_id()
+                            if trace_id:
+                                await self._persist_trace_id(job.id, trace_id)
+
+                            # Bind trace_id to structlog for log correlation
+                            bind_trace_context()
+
                             await entry.handler(ctx)
+
+                        # Log Jaeger trace URL after span ends (mirrors candi's LogGreen)
+                        trace_url = get_trace_url()
+                        if trace_url:
+                            logger.info("task_queue > trace_url", url=trace_url)
                 except Exception as e:
                     error = e
                     logger.exception(
@@ -214,6 +231,21 @@ class TaskQueueWorker:
                     )
                     break
             await self._finalize(job, error, start_at)
+
+    async def _persist_trace_id(self, job_id: str, trace_id: str) -> None:
+        """Persist trace_id to the job record so it's visible in the dashboard."""
+        assert self._session_factory is not None
+        try:
+            async with self._session_factory() as session:  # type: ignore[misc]
+                async with session.begin():
+                    await session.execute(
+                        update(Job).where(Job.id == job_id).values(
+                            trace_id=trace_id,
+                            updated_at=datetime.now(tz=timezone.utc),
+                        )
+                    )
+        except Exception:
+            logger.exception("task_queue.persist_trace_id_failed", job_id=job_id)
 
     async def _finalize(
         self, job: Job, error: Exception | None, start_at: datetime

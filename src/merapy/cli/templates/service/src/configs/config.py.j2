@@ -13,7 +13,9 @@ from merapy.config.broker.redis_broker import init_redis_broker
 from merapy.config.database.mongo import init_mongo
 from merapy.config.database.redis import init_redis
 from merapy.config.database.sql import init_sql
+from merapy.logger import init_logger
 from merapy.middleware.base import MiddlewareBuilder
+from merapy.tracer import init_tracer, set_jaeger_base_url
 from merapy.validator.base import CompositeValidator
 from merapy.validator.json_schema import JSONSchemaValidator
 from merapy.utils.redis_locker import RedisLocker
@@ -30,6 +32,18 @@ async def load_service_configs(cfg: "Config") -> list[Closer]:
     env = cfg.env
     closers: list[Closer] = []
 
+    # ── Observability ────────────────────────────────────────────────────────
+    # Initialize logger first so all subsequent boot logs include service name.
+    init_logger(service=env.service_name, debug=env.debug_mode)
+
+    # Initialize OpenTelemetry tracer. OTLP exporter can be added here:
+    #   from merapy_tracer_otlp import install_otlp_grpc_exporter
+    #   install_otlp_grpc_exporter(endpoint="http://jaeger:4317")
+    init_tracer(env.service_name)
+    if env.jaeger_base_url:
+        set_jaeger_base_url(env.jaeger_base_url)
+
+    # ── Datastores ───────────────────────────────────────────────────────────
     sql_db = init_sql(env)
     if sql_db is not None:
         closers.append(sql_db)
@@ -49,7 +63,7 @@ async def load_service_configs(cfg: "Config") -> list[Closer]:
         builder.with_redis_pool(redis_pool)
         builder.with_locker(RedisLocker(redis_pool.write()))
 
-    # Brokers — only built if env is populated.
+    # ── Brokers ──────────────────────────────────────────────────────────────
     kafka = await init_kafka_broker(env)
     if kafka is not None:
         builder.with_broker(Worker.KAFKA, kafka)

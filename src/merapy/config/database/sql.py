@@ -83,5 +83,12 @@ def init_sql(env: Env) -> SQLDatabaseImpl | None:
         max_overflow=env.sql_max_overflow,
         echo=env.sql_echo,
     )
+    # Instrument both engines for automatic SQL query tracing.
+    # instrument_sql_database is a no-op if the tracer is not initialized.
+    try:
+        from merapy.tracer.sql_tracer import instrument_sql_database
+        instrument_sql_database(db)
+    except Exception:
+        logger.warning("sql.tracer_instrument_failed")
     logger.info("sql.connected", read=bool(env.sql_dsn_read), write=True)
     return db

@@ -122,6 +122,13 @@ class Env(BaseSettings):
     build_date: str = Field(default="", alias="BUILD_DATE")
     """ISO-8601 timestamp when the image/artifact was built (e.g. 2024-05-14T10:30:00Z)."""
 
+    # Observability — tracing
+    jaeger_base_url: str = Field(default="", alias="JAEGER_BASE_URL")
+    """Jaeger UI base URL for trace link generation (e.g. http://localhost:16686).
+    Leave empty to disable trace URL logging."""
+    trace_body_max_size: int = Field(default=65536, alias="TRACE_BODY_MAX_SIZE")
+    """Maximum request/response body size (bytes) to log as span events. Default 64 KB."""
+
     # Brokers (nested env vars via KafkaEnv / RabbitMQEnv)
     kafka: KafkaEnv = Field(default_factory=KafkaEnv)
     rabbitmq: RabbitMQEnv = Field(default_factory=RabbitMQEnv)

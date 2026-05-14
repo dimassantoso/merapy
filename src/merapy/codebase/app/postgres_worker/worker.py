@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from merapy.codebase.app._worker_base import collect_handlers
 from merapy.codebase.types import EventContext, Worker, WorkerHandlerEntry
 from merapy.logger import get_logger
-from merapy.tracer import start_trace
+from merapy.tracer import bind_trace_context, get_trace_url, start_trace_from_header
 
 if TYPE_CHECKING:
     from merapy.codebase.factory.service_factory import ServiceFactory
@@ -95,10 +95,17 @@ class PostgresListenerWorker:
                     if entry.disable_trace:
                         await entry.handler(ctx)
                     else:
-                        async with start_trace(f"PgListen:{module}:{channel}") as span:
+                        async with start_trace_from_header(
+                            f"PgListen:{module}:{channel}", {}
+                        ) as span:
                             span.set_attribute("channel", channel)
                             span.set_attribute("module", module)
+                            bind_trace_context()
                             await entry.handler(ctx)
+
+                        trace_url = get_trace_url()
+                        if trace_url:
+                            logger.info("postgres_listener > trace_url", url=trace_url)
                 except Exception:
                     logger.exception(
                         "postgres_listener.handler_failed", module=module, channel=channel
