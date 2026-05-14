@@ -170,6 +170,57 @@ async def _query_jobs(
 
 _worker_ref: "TaskQueueWorker | None" = None  # set by _build_schema
 
+# Asyncio condition — mutations notify this; subscriptions wait on it.
+# Allows push on change OR 2s timer, whichever comes first.
+_change_condition: asyncio.Condition = asyncio.Condition()
+
+
+def _notify_change() -> None:
+    """Signal all subscriptions that data has changed. Safe to call from any coroutine."""
+    async def _do_notify() -> None:
+        async with _change_condition:
+            _change_condition.notify_all()
+    asyncio.ensure_future(_do_notify())
+
+
+async def _recalc_summary(session_factory: Any, task_name: str) -> None:
+    """Recompute job_summaries for a task by counting directly from jobs table.
+
+    Called after every mutation so the summary is always accurate.
+    """
+    from kapynis.codebase.app.task_queue_worker.model import Job, JobSummary, JobStatus
+    async with session_factory() as session:  # type: ignore[misc]
+        async with session.begin():
+            counts: dict[str, int] = {}
+            for status in [JobStatus.QUEUEING, JobStatus.RETRYING,
+                           JobStatus.SUCCESS, JobStatus.FAILURE, JobStatus.STOPPED]:
+                cnt = int(
+                    (await session.execute(
+                        select(func.count()).where(
+                            Job.task_name == task_name,
+                            Job.status == status,
+                        )
+                    )).scalar() or 0
+                )
+                counts[status] = cnt
+
+            existing = await session.get(JobSummary, task_name)
+            if existing is None:
+                session.add(JobSummary(
+                    id=task_name,
+                    queueing=counts[JobStatus.QUEUEING],
+                    retrying=counts[JobStatus.RETRYING],
+                    success=counts[JobStatus.SUCCESS],
+                    failure=counts[JobStatus.FAILURE],
+                    stopped=counts[JobStatus.STOPPED],
+                ))
+            else:
+                existing.queueing = counts[JobStatus.QUEUEING]
+                existing.retrying = counts[JobStatus.RETRYING]
+                existing.success = counts[JobStatus.SUCCESS]
+                existing.failure = counts[JobStatus.FAILURE]
+                existing.stopped = counts[JobStatus.STOPPED]
+
 
 @strawberry.type
 class TaskDetailResolver:
@@ -276,42 +327,57 @@ class _Mutation:
                 )
                 session.add(job)
                 await session.flush()
-                return job.id
+                job_id = job.id
+        await _recalc_summary(w._session_factory, param.task_name)
+        _notify_change()
+        return job_id
 
     @strawberry.mutation
     async def retry_job(self, job_id: str) -> str:
         from kapynis.codebase.app.task_queue_worker.model import Job, JobStatus
         w = _worker_ref
         assert w is not None and w._session_factory is not None
+        task_name: str = ""
         async with w._session_factory() as session:  # type: ignore[misc]
             async with session.begin():
+                job = await session.get(Job, job_id)
+                if job:
+                    task_name = job.task_name
                 await session.execute(
                     update(Job).where(Job.id == job_id).values(
                         status=JobStatus.QUEUEING, retries=0, error="",
                         finished_at=None, updated_at=datetime.now(tz=timezone.utc),
                     )
                 )
+        if task_name:
+            await _recalc_summary(w._session_factory, task_name)
+        _notify_change()
         return "ok"
 
     @strawberry.mutation
     async def stop_job(self, job_id: str) -> str:
-        """Stop a single running/queued job — sets status to STOPPED."""
         from kapynis.codebase.app.task_queue_worker.model import Job, JobStatus
         w = _worker_ref
         assert w is not None and w._session_factory is not None
+        task_name: str = ""
         async with w._session_factory() as session:  # type: ignore[misc]
             async with session.begin():
+                job = await session.get(Job, job_id)
+                if job:
+                    task_name = job.task_name
                 await session.execute(
                     update(Job).where(Job.id == job_id).values(
                         status=JobStatus.STOPPED,
                         updated_at=datetime.now(tz=timezone.utc),
                     )
                 )
+        if task_name:
+            await _recalc_summary(w._session_factory, task_name)
+        _notify_change()
         return "ok"
 
     @strawberry.mutation
     async def stop_all_job(self, task_name: str) -> str:
-        """Stop all QUEUEING and RETRYING jobs for a task — sets them to STOPPED."""
         from kapynis.codebase.app.task_queue_worker.model import Job, JobStatus
         w = _worker_ref
         assert w is not None and w._session_factory is not None
@@ -325,6 +391,8 @@ class _Mutation:
                     )
                     .values(status=JobStatus.STOPPED, updated_at=datetime.now(tz=timezone.utc))
                 )
+        await _recalc_summary(w._session_factory, task_name)
+        _notify_change()
         return "ok"
 
     @strawberry.mutation
@@ -341,6 +409,8 @@ class _Mutation:
                 if filter.statuses:
                     stmt = stmt.where(Job.status.in_(filter.statuses))
                 await session.execute(stmt)
+        await _recalc_summary(w._session_factory, filter.task_name)
+        _notify_change()
         return "ok"
 
     @strawberry.mutation
@@ -348,9 +418,16 @@ class _Mutation:
         from kapynis.codebase.app.task_queue_worker.model import Job
         w = _worker_ref
         assert w is not None and w._session_factory is not None
+        task_name: str = ""
         async with w._session_factory() as session:  # type: ignore[misc]
             async with session.begin():
+                job = await session.get(Job, job_id)
+                if job:
+                    task_name = job.task_name
                 await session.execute(delete(Job).where(Job.id == job_id))
+        if task_name:
+            await _recalc_summary(w._session_factory, task_name)
+        _notify_change()
         return "ok"
 
     @strawberry.mutation
@@ -364,6 +441,8 @@ class _Mutation:
                 if filter.statuses:
                     stmt = stmt.where(Job.status.in_(filter.statuses))
                 await session.execute(stmt)
+        await _recalc_summary(w._session_factory, filter.task_name)
+        _notify_change()
         return "ok"
 
 
@@ -376,43 +455,59 @@ class _Subscription:
         limit: int = 10,
         search: Optional[str] = None,
     ) -> AsyncGenerator[TaskListResolver, None]:
-        """Push task summary every 2 seconds — mirrors candi's listen_task_dashboard."""
-        while True:
+        """Push task summary on change OR every 2 seconds — whichever comes first."""
+        async def _fetch() -> TaskListResolver:
             tasks = await _get_all_task_impl()
-            # Apply search filter
             if search:
                 tasks = [t for t in tasks if search.lower() in t.name.lower()]
             total = len(tasks)
             offset = (page - 1) * limit
-            paged = tasks[offset: offset + limit]
-            yield TaskListResolver(
+            return TaskListResolver(
                 meta=MetaTaskResolver(
-                    page=page,
-                    limit=limit,
+                    page=page, limit=limit,
                     total_pages=max(1, (total + limit - 1) // limit),
                     total_records=total,
                 ),
-                data=paged,
+                data=tasks[offset: offset + limit],
             )
-            await asyncio.sleep(2)
+
+        # Push immediately on connect
+        yield await _fetch()
+
+        while True:
+            # Wait for change notification OR 2s timer — whichever fires first
+            async with _change_condition:
+                try:
+                    await asyncio.wait_for(_change_condition.wait(), timeout=2.0)
+                except asyncio.TimeoutError:
+                    pass
+            yield await _fetch()
 
     @strawberry.subscription
     async def listen_all_job(
         self,
         filter: Optional[GetAllJobInputResolver] = None,
     ) -> AsyncGenerator[JobListResolver, None]:
-        """Push job list every 2 seconds — mirrors candi's listen_all_job."""
-        while True:
+        """Push job list on change OR every 2 seconds — whichever comes first."""
+        async def _fetch() -> JobListResolver:
             w = _worker_ref
             if w is None or w._session_factory is None:
-                yield JobListResolver(
+                return JobListResolver(
                     meta=MetaType(page=1, limit=20, total_pages=0, total_records=0),
                     data=[],
                 )
-            else:
-                result = await _query_jobs(w._session_factory, filter or GetAllJobInputResolver())
-                yield result
-            await asyncio.sleep(2)
+            return await _query_jobs(w._session_factory, filter or GetAllJobInputResolver())
+
+        # Push immediately on connect
+        yield await _fetch()
+
+        while True:
+            async with _change_condition:
+                try:
+                    await asyncio.wait_for(_change_condition.wait(), timeout=2.0)
+                except asyncio.TimeoutError:
+                    pass
+            yield await _fetch()
 
 
 def _build_schema(worker: "TaskQueueWorker") -> strawberry.Schema:

@@ -273,6 +273,10 @@ class TaskQueueWorker:
                     )
                     await _upsert_summary(session, job.task_name, JobStatus.RETRYING)
 
+        # Notify dashboard subscriptions of the state change
+        from kapynis.codebase.app.task_queue_worker.dashboard import _notify_change
+        _notify_change()
+
     async def shutdown(self) -> None:
         self._stop.set()
 
