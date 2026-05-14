@@ -121,3 +121,38 @@ merapy init → generates service/
 Key markers: `repositoryImport/Method/Field/Constructor/Implementation`, `usecaseImport/Method/Field/Common/Implementation`, `moduleImport/Init`, `queryRoot/mutationRoot/subscriptionRoot`
 
 Also: `repositoryMongoImport/Method/Field/Constructor/Implementation` for MongoDB repos.
+
+## merapy-plugin
+
+Repo: `/Users/dimas/Documents/Project/personal/merapy-plugin/`
+
+All 11 plugins are implemented. Each is an independent Python package.
+
+| Directory | PyPI name | Worker/Server type | Status |
+|---|---|---|---|
+| `aws-sqs-sns/` | `merapy-aws-sqs-sns` | `Worker.AMAZONSQS` | ✅ |
+| `gcp-pubsub/` | `merapy-gcp-pubsub` | `Worker.GCP_PUBSUB` | ✅ |
+| `stomp-broker/` | `merapy-stomp-broker` | `Worker.STOMP` | ✅ |
+| `p2p/` | `merapy-p2p` | `Server.P2P_TCP` / `Server.P2P_UDP` | ✅ |
+| `sanic-rest/` | `merapy-sanic-rest` | REST adapter | ✅ |
+| `blacksheep-rest/` | `merapy-blacksheep-rest` | REST adapter | ✅ |
+| `oracledb/` | `merapy-oracledb` | `SQLDatabase` Protocol | ✅ |
+| `arangodb/` | `merapy-arangodb` | `extended("arangodb")` | ✅ |
+| `circuit-breaker/` | `merapy-circuit-breaker` | standalone decorator | ✅ |
+| `tracer-otlp/` | `merapy-tracer-otlp` | OTel exporter | ✅ |
+| `task-queue-admin/` | `merapy-task-queue-admin` | Mongo/Redis job stores | ✅ |
+
+**Plugin worker types** are first-class enum values in `merapy.codebase.types`:
+- `Worker.AMAZONSQS = "amazonsqs_broker"`
+- `Worker.GCP_PUBSUB = "gcp_pubsub"`
+- `Worker.STOMP = "stomp_broker"`
+- `Server.P2P_TCP = "p2p_tcp"`
+- `Server.P2P_UDP = "p2p_udp"`
+
+**Common pitfalls for plugins:**
+- Always use `Worker.AMAZONSQS` etc. — never `Worker("amazonsqs_broker")` raw cast (raises `ValueError`)
+- `SQSPublisher` reuses a single aioboto3 client per `serve()` lifetime for performance
+- `BlackSheepRouteWrapper` stores `_RouteSpec` tuples and flushes via `app.router.add_route()` — never iterate the router object
+- `SanicRouteWrapper` uses `Blueprint.group()` for nesting — never call `.blueprint()` on a Blueprint
+- `OracleSQLDatabase` uses `async_sessionmaker(engine)` — not `sessionmaker(bind=engine)` (SA 1.x style)
+- `TaskQueueAdminWorker` sets `self._session_factory = None` so the dashboard shows task names without DB queries
