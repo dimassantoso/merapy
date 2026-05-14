@@ -13,6 +13,19 @@ from pathlib import Path
 import click
 
 from merapy.cli.commands.add_handler import add_handler, _VALID_TYPES
+
+# Human-readable labels for handler types shown in the interactive menu
+_HANDLER_LABELS: dict[str, str] = {
+    "rest":       "REST API",
+    "grpc":       "gRPC",
+    "graphql":    "GraphQL",
+    "cron":       "Cron Scheduler",
+    "kafka":      "Kafka Consumer",
+    "rabbitmq":   "RabbitMQ Consumer",
+    "redis":      "Redis Subscriber",
+    "postgres":   "Postgres Listener",
+    "task_queue": "Task Queue",
+}
 from merapy.cli.commands.add_module import add_module
 from merapy.cli.commands.init_service import init_service
 
@@ -89,7 +102,7 @@ def _run_add_handler(ctx: click.Context) -> None:
 
     # Build numbered menu from valid types
     type_options = {str(i + 1): t for i, t in enumerate(_VALID_TYPES)}
-    menu_lines = "\n".join(f"{k}) {v}" for k, v in type_options.items())
+    menu_lines = "\n".join(f"{k}) {_HANDLER_LABELS[v]}" for k, v in type_options.items())
 
     while True:
         raw = _ask(

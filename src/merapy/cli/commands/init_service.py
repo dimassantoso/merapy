@@ -85,8 +85,8 @@ def _prompt_worker_handlers() -> set[str]:
     while True:
         raw = _ask(
             "Please select worker handlers (separated by comma, enter to skip)\n"
-            "1) Kafka\n2) Cron Scheduler\n3) Redis Subscriber\n"
-            "4) RabbitMQ\n5) Postgres Listener\n6) Task Queue"
+            "1) Kafka Consumer\n2) Cron Scheduler\n3) Redis Subscriber\n"
+            "4) RabbitMQ Consumer\n5) Postgres Listener\n6) Task Queue"
         )
         if not raw:
             return set()
