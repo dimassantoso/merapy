@@ -1,17 +1,19 @@
-"""Poll-based task-queue worker."""
+"""Merapy ``AppServerFactory`` adapter around standalone ``merapy-taskqueue``."""
 
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+import sys
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import select, update, func
+from merapy_taskqueue.store.memory import MemoryJobStore
+from merapy_taskqueue.store.sql import SQLJobStore
+from merapy_taskqueue.types import TaskContext
+from merapy_taskqueue.worker import TaskQueue
 
+from merapy import __version__ as _merapy_version
 from merapy.codebase.app._worker_base import collect_handlers
-from merapy.codebase.app.task_queue_worker.model import (
-    Job, JobHistory, JobStatus, JobSummary, TaskQueueBase,
-)
+from merapy.codebase.app.task_queue_worker.dashboard import _find_static_dir
 from merapy.codebase.factory.dependency import get_dependency
 from merapy.codebase.types import EventContext, Worker, WorkerHandlerEntry
 from merapy.logger import get_logger
@@ -26,284 +28,143 @@ _POLL_INTERVAL = 1.0
 
 
 class TaskQueueWorker:
+    """Merapy service worker wrapping standalone ``merapy_taskqueue.TaskQueue``."""
+
     name = "task-queue"
 
-    __slots__ = ("_service", "_stop", "_handlers", "_semaphore", "_session_factory")
+    __slots__ = ("_service", "_stop", "_handlers", "_semaphore", "_session_factory", "_queue")
 
-    def __init__(self, service: "ServiceFactory") -> None:
+    def __init__(self, service: ServiceFactory) -> None:
         self._service = service
         self._stop = asyncio.Event()
         self._handlers: dict[str, list[tuple[str, WorkerHandlerEntry]]] = {}
         self._semaphore: asyncio.Semaphore | None = None
-        self._session_factory: object | None = None
+        self._session_factory: Any = None
+        self._queue: TaskQueue | None = None
+
+    def _wrap_entry(
+        self,
+        module: str,
+        entry: WorkerHandlerEntry,
+        store: SQLJobStore,
+    ) -> Any:
+        async def _run_entry(tctx: TaskContext) -> None:
+            ctx = EventContext(
+                worker_type=Worker.TASK_QUEUE.value,
+                handler_route=tctx.task_name,
+                key=tctx.job_id,
+                body=tctx.body,
+                headers=tctx.headers,
+            )
+            if entry.disable_trace:
+                await entry.handler(ctx)
+                return
+
+            async with start_trace(f"TaskQueue:{module}:{tctx.task_name}") as span:
+                span.set_attribute("task.name", tctx.task_name)
+                span.set_attribute("task.id", tctx.job_id)
+                span.set_attribute("task.retries", tctx.retries)
+                span.set_attribute("task.max_retry", tctx.max_retry)
+                log_to_span("task.arguments", args=tctx.arguments)
+
+                trace_id = get_trace_id()
+                if trace_id:
+                    await store.persist_trace_id(tctx.job_id, trace_id)
+
+                bind_trace_context()
+                await entry.handler(ctx)
+
+            trace_url = get_trace_url()
+            if trace_url:
+                logger.info("task_queue > trace_url", url=trace_url)
+
+        return _run_entry
 
     async def serve(self) -> None:
         env = self._service.config().env
         entries = collect_handlers(self._service, Worker.TASK_QUEUE)
+        static_dir = _find_static_dir()
 
-        # Start the dashboard immediately — always reachable on TASK_QUEUE_DASHBOARD_PORT
-        # regardless of whether tables exist or handlers are registered.
-        from merapy.codebase.app.task_queue_worker.dashboard import TaskQueueDashboard
-        dashboard = TaskQueueDashboard(self, port=env.task_queue_dashboard_port)
-        dashboard_task = asyncio.create_task(dashboard.serve(), name="task-queue-dashboard")
+        sql_db = get_dependency().sql_db()
+        mongo_db = get_dependency().mongo_db()
 
-        try:
+        if not entries or sql_db is None:
             if not entries:
                 logger.info("task_queue.no_handlers")
-                await self._stop.wait()
-                return
-
-            sql_db = get_dependency().sql_db()
-            mongo_db = get_dependency().mongo_db()
-
-            # Persistent priority: Mongo → SQL → error.
-            # NOTE: Mongo persistent is not yet implemented — falls back to SQL.
-            if mongo_db is not None and sql_db is None:
+            elif mongo_db is not None:
                 logger.warning(
                     "task_queue.mongo_not_supported",
                     message=(
-                        "Task queue worker prefers MongoDB but currently "
-                        "only supports SQL persistent. "
-                        "Add SQL_DSN_WRITE to .env to enable the task queue."
+                        "Core SQL task queue worker requires SQL_DSN_WRITE in .env. "
+                        "For MongoDB persistence, use merapy_taskqueue.MongoJobStore."
                     ),
                 )
-                await self._stop.wait()
-                return
-
-            if sql_db is None:
+            else:
                 logger.error("task_queue.no_persistent — requires SQL_DSN_WRITE in .env")
-                await self._stop.wait()
-                return
 
-            self._session_factory = sql_db.session_factory()
-            logger.info("task_queue.persistent", backend="sql")
-            self._semaphore = asyncio.Semaphore(env.max_workers)
-            for module, entry in entries:
-                self._handlers.setdefault(entry.pattern, []).append((module, entry))
+            # Keep dashboard reachable even when no handlers or DB are wired.
+            idle_queue = TaskQueue(
+                store=MemoryJobStore(),
+                dashboard_enabled=True,
+                dashboard_port=env.task_queue_dashboard_port,
+                service_name=env.service_name,
+                service_version=env.app_version,
+                framework_version=_merapy_version,
+                build_number=env.build_number,
+                git_commit=env.git_commit,
+                build_date=env.build_date,
+                static_dir=str(static_dir) if static_dir is not None else None,
+            )
+            self._queue = idle_queue
+            await idle_queue.serve()
+            return
 
-            logger.info(
-                "task_queue.handlers",
-                names=list(self._handlers.keys()),
-                dashboard=f"http://localhost:{env.task_queue_dashboard_port}",
+        self._session_factory = sql_db.session_factory()
+        store = SQLJobStore(self._session_factory)
+        logger.info("task_queue.persistent", backend="sql")
+
+        def _handle_fatal(exc: Exception) -> bool:
+            if _is_missing_table(exc):
+                _print_missing_table_guide()
+                return True
+            return False
+
+        queue = TaskQueue(
+            store=store,
+            max_workers=env.max_workers,
+            poll_interval=_POLL_INTERVAL,
+            dashboard_enabled=True,
+            dashboard_port=env.task_queue_dashboard_port,
+            service_name=env.service_name,
+            service_version=env.app_version,
+            framework_version=_merapy_version,
+            build_number=env.build_number,
+            git_commit=env.git_commit,
+            build_date=env.build_date,
+            static_dir=str(static_dir) if static_dir is not None else None,
+            on_fatal_error=_handle_fatal,
+        )
+        self._queue = queue
+
+        for module, entry in entries:
+            self._handlers.setdefault(entry.pattern, []).append((module, entry))
+            queue.register(
+                entry.pattern,
+                self._wrap_entry(module, entry, store),
+                module_name=module,
             )
 
-            # Ensure a summary row exists for every registered task.
-            await self._init_summaries()
-
-            while not self._stop.is_set():
-                try:
-                    processed = await self._tick()
-                    if processed == 0:
-                        try:
-                            await asyncio.wait_for(self._stop.wait(), timeout=_POLL_INTERVAL)
-                        except asyncio.TimeoutError:
-                            pass
-                except Exception as exc:
-                    if _is_missing_table(exc):
-                        _print_missing_table_guide()
-                        self._stop.set()
-                        return
-                    logger.exception("task_queue.tick_failed")
-                    await asyncio.sleep(_POLL_INTERVAL)
-        finally:
-            dashboard_task.cancel()
-            await asyncio.gather(dashboard_task, return_exceptions=True)
-
-    async def _init_summaries(self) -> None:
-        """Ensure a summary row exists for every registered task.
-
-        This makes task names visible in the dashboard immediately at startup.
-        """
-        from merapy.codebase.app.task_queue_worker.model import Job, JobSummary, JobStatus
-        async with self._session_factory() as session:  # type: ignore[misc]
-            async with session.begin():
-                for task_name in self._handlers.keys():
-                    # Count current jobs per status for this task.
-                    counts: dict[str, int] = {}
-                    for status in [JobStatus.QUEUEING, JobStatus.RETRYING,
-                                   JobStatus.SUCCESS, JobStatus.FAILURE, JobStatus.STOPPED]:
-                        cnt = int(
-                            (await session.execute(
-                                select(func.count()).where(
-                                    Job.task_name == task_name,
-                                    Job.status == status,
-                                )
-                            )).scalar() or 0
-                        )
-                        counts[status] = cnt
-
-                    # Upsert summary row.
-                    existing = await session.get(JobSummary, task_name)
-                    if existing is None:
-                        session.add(JobSummary(
-                            id=task_name,
-                            queueing=counts[JobStatus.QUEUEING],
-                            retrying=counts[JobStatus.RETRYING],
-                            success=counts[JobStatus.SUCCESS],
-                            failure=counts[JobStatus.FAILURE],
-                            stopped=counts[JobStatus.STOPPED],
-                        ))
-                    else:
-                        existing.queueing = counts[JobStatus.QUEUEING]
-                        existing.retrying = counts[JobStatus.RETRYING]
-                        existing.success = counts[JobStatus.SUCCESS]
-                        existing.failure = counts[JobStatus.FAILURE]
-                        existing.stopped = counts[JobStatus.STOPPED]
-        logger.info("task_queue.summaries_initialized", tasks=list(self._handlers.keys()))
-
-    async def _tick(self) -> int:
-        assert self._session_factory is not None
-        assert self._semaphore is not None
-        now = datetime.now(tz=timezone.utc)
-        async with self._session_factory() as session:  # type: ignore[misc]
-            async with session.begin():
-                stmt = (
-                    select(Job)
-                    .where(
-                        Job.status == JobStatus.QUEUEING,
-                        Job.task_name.in_(self._handlers.keys()),
-                    )
-                    .order_by(Job.created_at.asc())
-                    .limit(50)
-                    .with_for_update(skip_locked=True)
-                )
-                result = await session.execute(stmt)
-                jobs = list(result.scalars().all())
-                if not jobs:
-                    return 0
-                ids = [j.id for j in jobs]
-                await session.execute(
-                    update(Job)
-                    .where(Job.id.in_(ids))
-                    .values(status=JobStatus.RETRYING, updated_at=now)
-                )
-        await asyncio.gather(*(self._run(j) for j in jobs))
-        return len(jobs)
-
-    async def _run(self, job: Job) -> None:
-        assert self._session_factory is not None
-        assert self._semaphore is not None
-        handlers = self._handlers.get(job.task_name, [])
-        async with self._semaphore:
-            ctx = EventContext(
-                worker_type=Worker.TASK_QUEUE.value,
-                handler_route=job.task_name,
-                key=job.id,
-                body=job.arguments.encode(),
-                headers={
-                    "retries": str(job.retries),
-                    "max_retry": str(job.max_retry),
-                    "interval": job.interval,
-                },
-            )
-            error: Exception | None = None
-            start_at = datetime.now(tz=timezone.utc)
-            for module, entry in handlers:
-                try:
-                    if entry.disable_trace:
-                        await entry.handler(ctx)
-                    else:
-                        async with start_trace(f"TaskQueue:{module}:{job.task_name}") as span:
-                            span.set_attribute("task.name", job.task_name)
-                            span.set_attribute("task.id", job.id)
-                            span.set_attribute("task.retries", job.retries)
-                            span.set_attribute("task.max_retry", job.max_retry)
-                            log_to_span("task.arguments", args=job.arguments)
-
-                            # Persist trace_id to job record so it's visible in dashboard
-                            trace_id = get_trace_id()
-                            if trace_id:
-                                await self._persist_trace_id(job.id, trace_id)
-
-                            # Bind trace_id to structlog for log correlation
-                            bind_trace_context()
-
-                            await entry.handler(ctx)
-
-                        # Log Jaeger trace URL after span ends (mirrors candi's LogGreen)
-                        trace_url = get_trace_url()
-                        if trace_url:
-                            logger.info("task_queue > trace_url", url=trace_url)
-                except Exception as e:
-                    error = e
-                    logger.exception(
-                        "task_queue.handler_failed", module=module, task=job.task_name
-                    )
-                    break
-            await self._finalize(job, error, start_at)
-
-    async def _persist_trace_id(self, job_id: str, trace_id: str) -> None:
-        """Persist trace_id to the job record so it's visible in the dashboard."""
-        assert self._session_factory is not None
-        try:
-            async with self._session_factory() as session:  # type: ignore[misc]
-                async with session.begin():
-                    await session.execute(
-                        update(Job).where(Job.id == job_id).values(
-                            trace_id=trace_id,
-                            updated_at=datetime.now(tz=timezone.utc),
-                        )
-                    )
-        except Exception:
-            logger.exception("task_queue.persist_trace_id_failed", job_id=job_id)
-
-    async def _finalize(
-        self, job: Job, error: Exception | None, start_at: datetime
-    ) -> None:
-        assert self._session_factory is not None
-        now = datetime.now(tz=timezone.utc)
-        new_retries = job.retries + 1
-
-        async with self._session_factory() as session:  # type: ignore[misc]
-            async with session.begin():
-                session.add(
-                    JobHistory(
-                        job_id=job.id,
-                        status=JobStatus.SUCCESS if error is None else JobStatus.FAILURE,
-                        error=str(error) if error else "",
-                        start_at=start_at,
-                        end_at=now,
-                    )
-                )
-                if error is None:
-                    await session.execute(
-                        update(Job).where(Job.id == job.id).values(
-                            status=JobStatus.SUCCESS,
-                            finished_at=now,
-                            updated_at=now,
-                            retries=new_retries,
-                            error="",
-                        )
-                    )
-                elif new_retries >= job.max_retry:
-                    await session.execute(
-                        update(Job).where(Job.id == job.id).values(
-                            status=JobStatus.FAILURE,
-                            finished_at=now,
-                            updated_at=now,
-                            retries=new_retries,
-                            error=str(error),
-                        )
-                    )
-                else:
-                    backoff = timedelta(seconds=min(60, 2**new_retries))
-                    await session.execute(
-                        update(Job).where(Job.id == job.id).values(
-                            status=JobStatus.QUEUEING,
-                            updated_at=now,
-                            retries=new_retries,
-                            error=str(error),
-                            finished_at=None,
-                        )
-                    )
-
-        # Recompute summary from scratch — accurate, no stale increments
-        from merapy.codebase.app.task_queue_worker.dashboard import _recalc_summary, _notify_change
-        await _recalc_summary(self._session_factory, job.task_name)
-        _notify_change()
+        logger.info(
+            "task_queue.handlers",
+            names=list(self._handlers.keys()),
+            dashboard=f"http://localhost:{env.task_queue_dashboard_port}",
+        )
+        await queue.serve()
 
     async def shutdown(self) -> None:
         self._stop.set()
+        if self._queue is not None:
+            await self._queue.shutdown()
 
 
 def _is_missing_table(exc: Exception) -> bool:
@@ -312,7 +173,6 @@ def _is_missing_table(exc: Exception) -> bool:
 
 
 def _print_missing_table_guide() -> None:
-    import sys
     print(
         "\n"
         "\033[31m✗ Task queue worker failed: task queue tables do not exist.\033[0m\n"

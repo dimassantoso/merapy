@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -12,7 +13,16 @@ from merapy.helper.string_case import to_kebab, to_pascal, to_snake
 
 
 def _templates_dir() -> Path:
-    """Return the on-disk path to the bundled template tree."""
+    """Return the on-disk path to the bundled template tree.
+
+    Supports both standard Python installs and PyInstaller one-file binaries
+    (which unpack data files under ``sys._MEIPASS``).
+    """
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass is not None:
+        frozen_dir = Path(meipass) / "merapy" / "cli" / "templates"
+        if frozen_dir.is_dir():
+            return frozen_dir
     pkg = resources.files("merapy.cli")
     return Path(str(pkg)) / "templates"
 

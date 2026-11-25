@@ -20,10 +20,14 @@ jobs:
           cache: pip
 
       - name: Install
-        run: pip install -e ".[dev]"
+        run: |
+          pip install -e "./packages/merapy-taskqueue[all,dev]"
+          pip install -e ".[dev]"
 
       - name: Lint
-        run: ruff check src tests
+        run: ruff check src tests packages/merapy-taskqueue/src packages/merapy-taskqueue/tests
 
       - name: Test
-        run: pytest tests/unit -v
+        run: |
+          pytest tests/unit -v
+          pytest packages/merapy-taskqueue/tests -v

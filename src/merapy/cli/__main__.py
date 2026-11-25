@@ -12,7 +12,10 @@ from pathlib import Path
 
 import click
 
-from merapy.cli.commands.add_handler import add_handler, _VALID_TYPES
+from merapy import __version__
+from merapy.cli.commands.add_handler import _VALID_TYPES, add_handler
+from merapy.cli.commands.add_module import add_module
+from merapy.cli.commands.init_service import init_service
 
 # Human-readable labels for handler types shown in the interactive menu
 _HANDLER_LABELS: dict[str, str] = {
@@ -26,8 +29,6 @@ _HANDLER_LABELS: dict[str, str] = {
     "postgres":   "Postgres Listener",
     "task_queue": "Task Queue",
 }
-from merapy.cli.commands.add_module import add_module
-from merapy.cli.commands.init_service import init_service
 
 _BANNER = (
     "\n"
@@ -110,8 +111,8 @@ def _run_add_handler(ctx: click.Context) -> None:
         )
         selected = []
         valid = True
-        for token in raw.split(","):
-            token = token.strip()
+        for raw_token in raw.split(","):
+            token = raw_token.strip()
             if token in type_options:
                 selected.append(type_options[token])
             elif token in _VALID_TYPES:
@@ -132,7 +133,7 @@ def _run_add_handler(ctx: click.Context) -> None:
     invoke_without_command=True,
     help="Scaffold and extend merapy-based services.",
 )
-@click.version_option(package_name="merapy", prog_name="merapy")
+@click.version_option(version=__version__, prog_name="merapy")
 @click.pass_context
 def cli(ctx: click.Context) -> None:
     if ctx.invoked_subcommand is not None:
@@ -145,14 +146,13 @@ def cli(ctx: click.Context) -> None:
         if choice == "1":
             ctx.invoke(init_service)
             return
-        elif choice == "2":
+        if choice == "2":
             _run_add_module(ctx)
             return
-        elif choice == "3":
+        if choice == "3":
             _run_add_handler(ctx)
             return
-        else:
-            click.echo(f"\033[31mInvalid option '{choice}', try again\033[0m\n")
+        click.echo(f"\033[31mInvalid option '{choice}', try again\033[0m\n")
 
 
 cli.add_command(init_service, name="init")

@@ -65,6 +65,11 @@ dev = [
     "build>=1.2",
     "twine>=5.0",
 ]
+release = [
+    "pyinstaller>=6.0",
+    "build>=1.2",
+    "twine>=5.0",
+]
 
 [project.scripts]
 merapy = "merapy.cli.__main__:cli"

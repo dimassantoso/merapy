@@ -219,3 +219,6 @@ __marimo__/
 
 .idea
 CLAUDE.md
+node_modules/
+release/
+

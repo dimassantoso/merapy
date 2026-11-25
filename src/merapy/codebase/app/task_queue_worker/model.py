@@ -1,141 +1,21 @@
-"""SQLAlchemy models for the task-queue worker."""
+"""SQLAlchemy models for the task-queue worker (re-exported from ``merapy_taskqueue``)."""
 
 from __future__ import annotations
 
-import uuid
-from datetime import datetime, timezone
-
-from sqlalchemy import (
-    Boolean, DateTime, Index, Integer, String, Text
+from merapy_taskqueue.store.sql import (
+    Job,
+    JobHistory,
+    JobSummary,
+    TaskQueueBase,
+    TaskQueueConfiguration,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from merapy_taskqueue.types import JobStatus
 
-
-class TaskQueueBase(DeclarativeBase):
-    """Standalone Base for task-queue tables.
-
-    Kept separate from the service's ``pkg/shared/domain`` Base so alembic
-    autogenerate in the generated service can include these tables by merging
-    metadata (see alembic/env.py).
-    """
-
-
-def _utcnow() -> datetime:
-    return datetime.now(tz=timezone.utc)
-
-
-def _new_id() -> str:
-    return str(uuid.uuid4())
-
-
-# ---------------------------------------------------------------------------
-# Status constants
-# ---------------------------------------------------------------------------
-
-class JobStatus:
-    QUEUEING = "QUEUEING"
-    RETRYING = "RETRYING"
-    SUCCESS  = "SUCCESS"
-    FAILURE  = "FAILURE"
-    STOPPED  = "STOPPED"
-
-
-# ---------------------------------------------------------------------------
-# task_queue_worker_jobs
-# ---------------------------------------------------------------------------
-
-class Job(TaskQueueBase):
-    """Main job record."""
-
-    __tablename__ = "task_queue_worker_jobs"
-
-    id: Mapped[str] = mapped_column(
-        String(255), primary_key=True, default=_new_id
-    )
-    task_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    arguments: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    retries: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    max_retry: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    interval: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=_utcnow
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
-    )
-    finished_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True, default=None
-    )
-    status: Mapped[str] = mapped_column(String(255), nullable=False, default=JobStatus.QUEUEING)
-    error: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    result: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    trace_id: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    current_progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    max_progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-
-    __table_args__ = (
-        Index("idx_tqw_created_at", "created_at"),
-        Index("idx_tqw_task_name", "task_name"),
-        Index("idx_tqw_status", "status"),
-        Index("idx_tqw_task_name_status", "task_name", "status"),
-        Index("idx_tqw_task_name_status_created_at", "task_name", "status", "created_at"),
-    )
-
-
-# ---------------------------------------------------------------------------
-# task_queue_worker_job_summaries
-# ---------------------------------------------------------------------------
-
-class JobSummary(TaskQueueBase):
-    """Per-task job counters. ``id`` is the task_name — one row per registered task."""
-
-    __tablename__ = "task_queue_worker_job_summaries"
-
-    id: Mapped[str] = mapped_column(String(255), primary_key=True)  # = task_name
-    success: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    queueing: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    retrying: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    failure: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    stopped: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    is_loading: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    loading_message: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-
-
-# ---------------------------------------------------------------------------
-# task_queue_worker_job_histories
-# ---------------------------------------------------------------------------
-
-class JobHistory(TaskQueueBase):
-    """Retry history per job."""
-
-    __tablename__ = "task_queue_worker_job_histories"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    job_id: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    error_stack: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    status: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    error: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    result: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    trace_id: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-    __table_args__ = (
-        Index("idx_tqw_job_id_history", "job_id"),
-        Index("idx_tqw_start_at_history", "start_at"),
-    )
-
-
-# ---------------------------------------------------------------------------
-# task_queue_worker_configurations
-# ---------------------------------------------------------------------------
-
-class TaskQueueConfiguration(TaskQueueBase):
-    """Runtime configuration key/value store."""
-
-    __tablename__ = "task_queue_worker_configurations"
-
-    key: Mapped[str] = mapped_column(String(255), primary_key=True)
-    name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    value: Mapped[str] = mapped_column(String(255), nullable=False, default="")
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+__all__ = [
+    "Job",
+    "JobHistory",
+    "JobStatus",
+    "JobSummary",
+    "TaskQueueBase",
+    "TaskQueueConfiguration",
+]
