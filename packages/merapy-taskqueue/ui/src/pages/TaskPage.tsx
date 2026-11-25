@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import { StatusBadge } from "../components/StatusBadge";
 import {
-  ADD_JOB,
   CLEAN_JOB,
   DELETE_JOB,
   GET_ALL_JOB,
@@ -22,7 +21,16 @@ import {
 import { useRouter } from "../lib/router";
 import { useSubscription } from "../lib/useSubscription";
 
-const STATUS_TABS = ["QUEUEING", "RETRYING", "SUCCESS", "FAILURE", "STOPPED"] as const;
+const STATUS_TABS = [
+  { key: "", label: "All" },
+  { key: "QUEUEING", label: "Queued" },
+  { key: "RETRYING", label: "Running" },
+  { key: "SUCCESS", label: "Succeeded" },
+  { key: "FAILURE", label: "Failed" },
+  { key: "STOPPED", label: "Stopped" },
+] as const;
+
+const STATUS_KEYS = ["QUEUEING", "RETRYING", "SUCCESS", "FAILURE", "STOPPED"] as const;
 
 function MutateModal({
   action,
@@ -70,82 +78,74 @@ function MutateModal({
       else await gql(CLEAN_JOB, { filter });
       onClose();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed");
+      alert(e instanceof Error ? e.message : "Operation failed");
     } finally {
       setSubmitting(false);
     }
   }
 
   const isRetry = action === "RETRY";
-  const btnCls = isRetry
-    ? "bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40"
-    : "bg-red-600 hover:bg-red-700 text-white disabled:opacity-40";
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-          <div>
-            <h2 className="font-semibold text-gray-900 dark:text-white">{isRetry ? "Retry All" : "Clear Jobs"}</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">{taskName}</p>
-          </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg">✕</button>
+    <div
+      className="modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mutate-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="modal-dialog">
+        <div className="modal-head">
+          <h2 id="mutate-title">{isRetry ? `Retry jobs in ${taskName}` : `Clear jobs in ${taskName}`}</h2>
+          <button type="button" className="btn sm text-action" onClick={onClose}>Close</button>
         </div>
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Status</label>
-            <div className="flex flex-wrap gap-2">
-              {STATUS_TABS.map((s) => (
+        <div className="modal-body">
+          <div className="field">
+            <label>Matching statuses</label>
+            <div className="chip-group">
+              {STATUS_KEYS.map((s) => (
                 <button
                   key={s}
                   type="button"
+                  className="chip-toggle"
+                  aria-pressed={statuses.includes(s)}
                   onClick={() => setStatuses((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s]))}
-                  className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
-                    statuses.includes(s)
-                      ? "bg-indigo-600 text-white border-indigo-600"
-                      : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  }`}
                 >
-                  {s}
+                  {s.charAt(0) + s.slice(1).toLowerCase()}
                 </button>
               ))}
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Search</label>
+          <div className="field">
+            <label htmlFor="mutate-search">Argument filter</label>
             <input
+              id="mutate-search"
               type="text"
+              className="input"
               value={search}
               onInput={(e) => setSearch((e.target as HTMLInputElement).value)}
-              placeholder="Filter by arguments…"
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Optional substring in arguments"
             />
           </div>
-          <div className="text-right text-sm">
-            {countLoading ? (
-              <span className="text-gray-400 animate-pulse">Counting…</span>
-            ) : count !== null ? (
-              <span className="text-gray-700 dark:text-gray-300">
-                Found <b className="tabular-nums">{count}</b> job{count !== 1 ? "s" : ""}
-              </span>
-            ) : null}
+          <div className="panel-meta num">
+            {countLoading
+              ? "Counting matching jobs…"
+              : count !== null
+                ? `${count} matching job${count === 1 ? "" : "s"}`
+                : "Unable to count jobs"}
           </div>
         </div>
-        <div className="px-6 pb-6 flex gap-3">
+        <div className="modal-foot">
+          <button type="button" className="btn" onClick={onClose}>Cancel</button>
           <button
             type="button"
-            onClick={() => void handleSubmit()}
+            className={`btn ${isRetry ? "primary" : "danger"}`}
             disabled={submitting || count === 0 || statuses.length === 0}
-            className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors ${btnCls}`}
+            onClick={() => void handleSubmit()}
           >
-            {submitting ? "Processing…" : `${isRetry ? "Retry" : "Clear"} ${count ?? "?"} jobs`}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-          >
-            Cancel
+            {submitting ? "Processing…" : `${isRetry ? "Retry" : "Clear"} ${count ?? 0} jobs`}
           </button>
         </div>
       </div>
@@ -153,82 +153,11 @@ function MutateModal({
   );
 }
 
-function AddJobModal({ taskName, onClose }: { taskName: string; onClose: () => void }) {
-  const [args, setArgs] = useState("{}");
-  const [maxRetry, setMaxRetry] = useState(3);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-
-  async function handleSubmit(e: Event) {
-    e.preventDefault();
-    setLoading(true);
-    setErr("");
-    try {
-      await gql(ADD_JOB, { param: { task_name: taskName, max_retry: maxRetry, args } });
-      onClose();
-    } catch (ex) {
-      setErr(ex instanceof Error ? ex.message : "Failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700">
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-          <div>
-            <h2 className="font-semibold text-gray-900 dark:text-white">Add Job</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">{taskName}</p>
-          </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg">✕</button>
-        </div>
-        <form onSubmit={(e) => void handleSubmit(e)} className="p-6 space-y-4">
-          {err && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 rounded-lg px-3 py-2">{err}</p>}
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Arguments (JSON)</label>
-            <textarea
-              value={args}
-              onInput={(e) => setArgs((e.target as HTMLTextAreaElement).value)}
-              rows={5}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder='{"key": "value"}'
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Max Retry</label>
-            <input
-              type="number"
-              value={maxRetry}
-              min={1}
-              max={100}
-              onInput={(e) => setMaxRetry(Number((e.target as HTMLInputElement).value))}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div className="flex gap-3 pt-1">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-50 transition-colors"
-            >
-              {loading ? "Adding…" : "Add Job"}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg py-2.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
+interface TaskPageProps {
+  onAddJob: (taskName?: string) => void;
 }
 
-export function TaskPage() {
+export function TaskPage({ onAddJob }: TaskPageProps) {
   const { searchParams, push } = useRouter();
   const taskName = searchParams.get("task_name") ?? "";
   const statusFilter = searchParams.get("statuses") ?? "";
@@ -236,12 +165,12 @@ export function TaskPage() {
 
   const [actionId, setActionId] = useState<string | null>(null);
   const [search, setSearch] = useState(searchParams.get("search") ?? "");
-  const [modal, setModal] = useState<"add" | "retry" | "clean" | null>(null);
+  const [modal, setModal] = useState<"retry" | "clean" | null>(null);
 
   const subFilter = useMemo(
     () => ({
       page,
-      limit: 10,
+      limit: 12,
       task_name: taskName || undefined,
       statuses: statusFilter ? statusFilter.split(",") : undefined,
       search: search || undefined,
@@ -258,7 +187,7 @@ export function TaskPage() {
 
   const rawData = subData?.listen_all_job ?? subData?.get_all_job ?? null;
   const jobs: Job[] = rawData?.data ?? [];
-  const meta: JobMeta = rawData?.meta ?? { page: 1, limit: 10, total_pages: 1, total_records: 0 };
+  const meta: JobMeta = rawData?.meta ?? { page: 1, limit: 12, total_pages: 1, total_records: 0 };
   const hasStoppable = jobs.some((j) => j.status === "QUEUEING" || j.status === "RETRYING");
 
   function setParam(key: string, value: string | undefined) {
@@ -266,7 +195,8 @@ export function TaskPage() {
     if (value) params.set(key, value);
     else params.delete(key);
     if (key !== "page") params.delete("page");
-    push("/task?" + params.toString());
+    const qs = params.toString();
+    push(qs ? `/task?${qs}` : "/task");
   }
 
   async function act(fn: () => Promise<unknown>, jobId?: string) {
@@ -278,211 +208,205 @@ export function TaskPage() {
     }
   }
 
-  return (
-    <div className="space-y-5">
-      <nav className="flex items-center gap-2 text-sm">
-        <button
-          type="button"
-          onClick={() => push("/")}
-          className="text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Dashboard
-        </button>
-        <span className="text-gray-300 dark:text-gray-600">/</span>
-        <span className="font-semibold font-mono text-gray-900 dark:text-white">{taskName || "All Tasks"}</span>
-        {loading && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse ml-1" />}
-      </nav>
+  const rangeStart = meta.total_records === 0 ? 0 : (meta.page - 1) * meta.limit + 1;
+  const rangeEnd = Math.min(meta.page * meta.limit, meta.total_records);
 
-      <div className="flex flex-wrap gap-1.5">
-        <button
-          type="button"
-          onClick={() => setParam("statuses", undefined)}
-          className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
-            !statusFilter
-              ? "bg-indigo-600 text-white border-indigo-600"
-              : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-          }`}
-        >
-          All <span className="tabular-nums">({meta.total_records})</span>
-        </button>
-        {STATUS_TABS.map((s) => (
+  return (
+    <>
+      <div className="title-row">
+        <div className="title-block">
+          <nav className="breadcrumb" aria-label="Breadcrumb">
+            <button type="button" onClick={() => push("/")}>Overview</button>
+            <span aria-hidden="true">/</span>
+            <span>{taskName || "All jobs"}</span>
+          </nav>
+          <h1 className={`page-title ${taskName ? "mono" : ""}`}>{taskName || "All jobs"}</h1>
+          <p className="page-sub num">
+            {meta.total_records} job{meta.total_records === 1 ? "" : "s"}
+            {statusFilter ? ` filtered by ${statusFilter.toLowerCase()}` : " in this view"}.
+          </p>
+        </div>
+
+        {taskName && (
+          <div className="title-actions">
+            <button type="button" className="btn" onClick={() => setModal("retry")}>
+              Retry failed
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                if (!confirm(`Retry all jobs in "${taskName}" regardless of status?`)) return;
+                void gql(RETRY_ALL_JOB_FORCE, { task_name: taskName });
+              }}
+            >
+              Retry all
+            </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={!hasStoppable}
+              onClick={() => {
+                if (!confirm(`Stop all queued and running jobs in "${taskName}"?`)) return;
+                void gql(STOP_ALL_JOB, { task_name: taskName });
+              }}
+            >
+              Stop all
+            </button>
+            <button type="button" className="btn danger" onClick={() => setModal("clean")}>
+              Clear
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Underline status tabs */}
+      <div className="tabs" role="tablist" aria-label="Filter jobs by status">
+        {STATUS_TABS.map((t) => (
           <button
-            key={s}
+            key={t.key || "all"}
             type="button"
-            onClick={() => setParam("statuses", s)}
-            className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
-              statusFilter === s
-                ? "bg-indigo-600 text-white border-indigo-600"
-                : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-            }`}
+            role="tab"
+            className="tab-btn"
+            aria-selected={statusFilter === t.key}
+            onClick={() => setParam("statuses", t.key || undefined)}
           >
-            {s}
+            {t.label}
           </button>
         ))}
       </div>
 
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+      {/* Filter toolbar */}
+      <div className="toolbar">
+        <div className="toolbar-left">
           <input
-            type="text"
-            placeholder="Search jobs…"
+            type="search"
+            className="input compact"
+            placeholder="Filter by arguments…"
+            aria-label="Filter jobs by arguments"
             value={search}
             onInput={(e) => setSearch((e.target as HTMLInputElement).value)}
             onKeyDown={(e) => e.key === "Enter" && setParam("search", search || undefined)}
-            className="pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48"
           />
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setModal("add")}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Add Job
-          </button>
-          <button
-            type="button"
-            onClick={() => setModal("retry")}
-            className="px-3 py-2 rounded-lg border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-xs font-medium hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
-          >
-            🔄 Retry Failed
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (!confirm(`Retry ALL jobs for "${taskName}" regardless of status?`)) return;
-              void gql(RETRY_ALL_JOB_FORCE, { task_name: taskName });
-            }}
-            className="px-3 py-2 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-xs font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors"
-          >
-            ⚡ Retry All
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (!confirm(`Stop all running/queued jobs for "${taskName}"?`)) return;
-              void gql(STOP_ALL_JOB, { task_name: taskName });
-            }}
-            disabled={!hasStoppable}
-            className="px-3 py-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            title={!hasStoppable ? "No running or queued jobs" : "Stop all running/queued jobs"}
-          >
-            ⏹ Stop All
-          </button>
-          <button
-            type="button"
-            onClick={() => setModal("clean")}
-            className="px-3 py-2 rounded-lg border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 text-xs font-medium hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
-          >
-            🗑 Clear
-          </button>
+        <div className="toolbar-right">
+          <span className="panel-meta num">
+            {meta.total_records > 0 ? `${rangeStart}–${rangeEnd} of ${meta.total_records}` : "0 jobs"}
+          </span>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-        {error ? (
-          <div className="p-8 text-center text-red-500 dark:text-red-400 text-sm">{error}</div>
-        ) : jobs.length === 0 && !loading ? (
-          <div className="p-16 text-center">
-            <p className="text-sm text-gray-400 dark:text-gray-500">No jobs found</p>
-            <button
-              type="button"
-              onClick={() => setModal("add")}
-              className="mt-3 text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
-            >
-              + Add first job
+      {error && (
+        <div className="error-inline">
+          <span>Failed to load jobs: {error}</span>
+          <button type="button" className="btn sm" onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      )}
+
+      {jobs.length === 0 && !loading ? (
+        <div className="empty-box">
+          <span>No jobs match the current filter.</span>
+          {taskName && (
+            <button type="button" className="btn sm" onClick={() => onAddJob(taskName)}>
+              Enqueue first job
             </button>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[700px]">
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="table-wrap desktop-table">
+            <table className="data-table">
               <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
-                  {["ID", "Status", "Retries", "Arguments", "Error", "Created", ""].map((h) => (
-                    <th key={h} className={`px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide ${h === "" || h === "Retries" ? "text-center" : "text-left"}`}>
-                      {h}
-                    </th>
-                  ))}
+                <tr>
+                  <th>Job ID</th>
+                  {!taskName && <th>Queue</th>}
+                  <th>Status</th>
+                  <th className="num">Attempts</th>
+                  <th>Arguments</th>
+                  <th>Error</th>
+                  <th className="num">Created</th>
+                  <th className="num">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+              <tbody>
                 {jobs.map((job) => (
-                  <tr key={job.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${actionId === job.id ? "opacity-40" : ""}`}>
-                    <td className="px-4 py-3">
+                  <tr key={job.id} style={{ opacity: actionId === job.id ? 0.45 : 1 }}>
+                    <td>
                       <button
                         type="button"
-                        onClick={() => push(`/job?id=${encodeURIComponent(job.id)}`)}
-                        className="font-mono text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                        className="task-link"
                         title={job.id}
+                        onClick={() => push(`/job?id=${encodeURIComponent(job.id)}`)}
                       >
                         {job.id.slice(0, 8)}…
                       </button>
                     </td>
-                    <td className="px-4 py-3">
-                      <button type="button" onClick={() => setParam("statuses", job.status)}>
-                        <StatusBadge status={job.status} />
-                      </button>
+                    {!taskName && (
+                      <td>
+                        <button
+                          type="button"
+                          className="task-link"
+                          onClick={() => push(`/task?task_name=${encodeURIComponent(job.task_name)}`)}
+                        >
+                          {job.task_name}
+                        </button>
+                      </td>
+                    )}
+                    <td>
+                      <StatusBadge status={job.status} />
                     </td>
-                    <td className="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400 tabular-nums">
-                      {job.retries}/{job.max_retry}
+                    <td className="num">
+                      <span>{job.retries}</span>
+                      <span className="cell-muted"> /{job.max_retry}</span>
                     </td>
-                    <td className="px-4 py-3 max-w-[180px]">
-                      <span className="font-mono text-xs text-gray-600 dark:text-gray-400 truncate block" title={job.arguments}>
+                    <td>
+                      <span className="cell-mono cell-muted cell-truncate" title={job.arguments}>
                         {job.arguments || "—"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 max-w-[180px]">
+                    <td>
                       {job.error ? (
-                        <span className="text-xs text-red-600 dark:text-red-400 truncate block" title={job.error}>{job.error}</span>
+                        <span className="cell-err cell-truncate" title={job.error}>{job.error}</span>
                       ) : (
-                        <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
+                        <span className="cell-muted">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
-                      {job.created_at ? new Date(job.created_at).toLocaleString() : "—"}
+                    <td className="num cell-muted" style={{ whiteSpace: "nowrap" }}>
+                      {job.created_at ? job.created_at.replace("T", " ").slice(0, 16) : "—"}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
+                    <td className="num">
+                      <div className="row-actions">
                         <button
                           type="button"
+                          className="btn text-action"
                           onClick={() => push(`/job?id=${encodeURIComponent(job.id)}`)}
-                          className="px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                         >
-                          Detail
+                          Inspect
                         </button>
                         <button
                           type="button"
-                          onClick={() => void act(() => gql(RETRY_JOB, { job_id: job.id }), job.id)}
+                          className="btn text-action"
                           disabled={actionId === job.id || !canRetry(job.status)}
-                          className="px-2 py-1 rounded border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-xs hover:bg-blue-100 dark:hover:bg-blue-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          onClick={() => void act(() => gql(RETRY_JOB, { job_id: job.id }), job.id)}
                         >
                           Retry
                         </button>
                         <button
                           type="button"
-                          onClick={() => void act(() => gql(STOP_JOB, { job_id: job.id }), job.id)}
+                          className="btn text-action"
                           disabled={actionId === job.id || !canStop(job.status)}
-                          className="px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-xs hover:bg-amber-100 dark:hover:bg-amber-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          onClick={() => void act(() => gql(STOP_JOB, { job_id: job.id }), job.id)}
                         >
                           Stop
                         </button>
                         <button
                           type="button"
+                          className="btn text-action neg"
+                          disabled={actionId === job.id}
                           onClick={() => {
-                            if (!confirm("Permanently delete this job?")) return;
+                            if (!confirm(`Permanently delete job ${job.id.slice(0, 8)}?`)) return;
                             void act(() => gql(DELETE_JOB, { job_id: job.id }), job.id);
                           }}
-                          disabled={actionId === job.id}
-                          className="px-2 py-1 rounded border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 text-xs hover:bg-red-100 dark:hover:bg-red-900 disabled:opacity-50 transition-colors"
                         >
                           Delete
                         </button>
@@ -493,36 +417,62 @@ export function TaskPage() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+
+          <div className="mobile-only">
+            {jobs.map((job) => (
+              <div key={job.id} className="mobile-row">
+                <div className="mobile-row-main">
+                  <button
+                    type="button"
+                    className="task-link"
+                    onClick={() => push(`/job?id=${encodeURIComponent(job.id)}`)}
+                  >
+                    {job.id.slice(0, 8)}… · {job.task_name}
+                  </button>
+                  <div className="mobile-row-sub">
+                    <StatusBadge status={job.status} />
+                    <span className="num">{job.retries}/{job.max_retry} attempts</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn sm"
+                  onClick={() => push(`/job?id=${encodeURIComponent(job.id)}`)}
+                >
+                  Inspect
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {meta.total_pages > 1 && (
-        <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-          <span className="tabular-nums">Page {meta.page} of {meta.total_pages} · {meta.total_records} jobs</span>
-          <div className="flex gap-2">
+        <div className="pager">
+          <span className="num">Page {meta.page} of {meta.total_pages} · {meta.total_records} jobs</span>
+          <div style={{ display: "flex", gap: "8px" }}>
             <button
               type="button"
-              onClick={() => setParam("page", String(meta.page - 1))}
+              className="btn sm"
               disabled={meta.page <= 1}
-              className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors text-xs"
+              onClick={() => setParam("page", String(meta.page - 1))}
             >
-              ← Prev
+              Previous
             </button>
             <button
               type="button"
-              onClick={() => setParam("page", String(meta.page + 1))}
+              className="btn sm"
               disabled={meta.page >= meta.total_pages}
-              className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors text-xs"
+              onClick={() => setParam("page", String(meta.page + 1))}
             >
-              Next →
+              Next
             </button>
           </div>
         </div>
       )}
 
-      {modal === "add" && <AddJobModal taskName={taskName} onClose={() => setModal(null)} />}
-      {modal === "retry" && <MutateModal action="RETRY" taskName={taskName} onClose={() => setModal(null)} />}
-      {modal === "clean" && <MutateModal action="CLEAN" taskName={taskName} onClose={() => setModal(null)} />}
-    </div>
+      {modal === "retry" && taskName && <MutateModal action="RETRY" taskName={taskName} onClose={() => setModal(null)} />}
+      {modal === "clean" && taskName && <MutateModal action="CLEAN" taskName={taskName} onClose={() => setModal(null)} />}
+    </>
   );
 }

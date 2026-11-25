@@ -1,26 +1,52 @@
-import { Navbar } from "./components/Navbar";
+import { useState } from "preact/hooks";
+import { AddJobModal } from "./components/AddJobModal";
+import { Shell } from "./components/Shell";
 import { RouterProvider, useRouter } from "./lib/router";
-import { StatsProvider } from "./lib/StatsContext";
+import { StatsProvider, useStats } from "./lib/StatsContext";
 import { DashboardPage } from "./pages/DashboardPage";
 import { JobPage } from "./pages/JobPage";
 import { TaskPage } from "./pages/TaskPage";
 
-function PageSwitch() {
+function Workspace() {
   const { pathname } = useRouter();
+  const { tasks } = useStats();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [addModalTask, setAddModalTask] = useState<string | null>(null);
+
   const clean = pathname.replace(/\/+$/, "") || "/";
-  if (clean === "/task") return <TaskPage />;
-  if (clean === "/job") return <JobPage />;
-  return <DashboardPage />;
+
+  return (
+    <>
+      <Shell
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onAddJob={() => setAddModalTask("")}
+      >
+        {clean === "/task" ? (
+          <TaskPage onAddJob={(tn) => setAddModalTask(tn ?? "")} />
+        ) : clean === "/job" ? (
+          <JobPage />
+        ) : (
+          <DashboardPage searchQuery={searchQuery} />
+        )}
+      </Shell>
+
+      {addModalTask !== null && (
+        <AddJobModal
+          tasks={tasks}
+          defaultTask={addModalTask || undefined}
+          onClose={() => setAddModalTask(null)}
+        />
+      )}
+    </>
+  );
 }
 
 export function App() {
   return (
     <RouterProvider>
       <StatsProvider>
-        <Navbar />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-          <PageSwitch />
-        </main>
+        <Workspace />
       </StatsProvider>
     </RouterProvider>
   );
