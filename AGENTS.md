@@ -16,7 +16,7 @@ GitHub: https://github.com/dimassantoso/merapy
 | Task queue dashboard (Python backend) | `src/merapy/codebase/app/task_queue_worker/dashboard.py` |
 | Embedded dashboard static files | `src/merapy/codebase/app/task_queue_worker/dashboard_static/` |
 | Env config | `src/merapy/config/env.py` |
-| Dashboard UI repo | `/Users/dimas/Documents/Project/personal/merapy-taskqueue-dashboard/` |
+| Task queue repo (engine + UI) | `/Users/dimas/Documents/Project/personal/merapy-taskqueue/` |
 | Example services | `/Users/dimas/Documents/Project/personal/{user,product}-service/` |
 
 ## Dev commands
@@ -33,8 +33,8 @@ merapy init          # scaffold new service
 merapy add-module    # add module to service
 merapy add-handler   # add delivery handler
 
-# Dashboard (rebuild + embed into merapy)
-cd /Users/dimas/Documents/Project/personal/merapy-taskqueue-dashboard
+# Task queue dashboard (rebuild + embed into merapy)
+cd /Users/dimas/Documents/Project/personal/merapy-taskqueue
 make embed MERAPY_DIR=/Users/dimas/Documents/Project/personal/merapy
 ```
 
@@ -54,7 +54,7 @@ make proto                        # generate gRPC stubs (if USE_GRPC=true)
 3. **Task queue tables** use `TaskQueueBase` (separate from service `Base`) — must merge metadata in `alembic/env.py`.
 4. **`TaskBase` is now `TaskQueueBase`** — old name causes ImportError.
 5. **Strawberry auto-camelCase** — task queue dashboard schema uses `StrawberryConfig(auto_camel_case=False)` to keep snake_case field names.
-6. **Dashboard embed** — after changing `merapy-taskqueue-dashboard`, always run `make embed` to update `dashboard_static/`.
+6. **Dashboard embed** — after changing `merapy-taskqueue` UI, always run `make embed` to update `dashboard_static/`.
 7. **Broker connect** — Kafka/RabbitMQ `start()` is wrapped with `asyncio.wait_for(timeout=10)` — if broker is down, service logs warning and continues.
 
 ## Architecture in one diagram
@@ -77,7 +77,7 @@ merapy init → generates service/
 ## Task queue dashboard
 
 - **Port**: `TASK_QUEUE_DASHBOARD_PORT` (default 8080)
-- **Served by**: `dashboard.py` — FastAPI + strawberry GraphQL + embedded Next.js static files
+- **Served by**: `dashboard.py` — FastAPI + strawberry GraphQL + embedded Vite/Preact static files
 - **GraphQL schema** (snake_case, `auto_camel_case=False`):
   - Queries: `get_all_job`, `get_count_job`, `get_all_task`, `get_worker_stats`
   - Mutations: `add_job`, `retry_job`, `stop_job`, `stop_all_job`, `retry_all_job`, `delete_job`, `clean_job`

@@ -186,24 +186,18 @@ def build_binary(output_dir: Path, binary_name: str) -> Path:
 
 def build_python_dist(output_dir: Path) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    package_roots = [ROOT]
-    tq_root = ROOT / "packages" / "merapy-taskqueue"
-    if (tq_root / "pyproject.toml").is_file():
-        package_roots.append(tq_root)
-
     copied: list[Path] = []
-    for pkg_root in package_roots:
-        with tempfile.TemporaryDirectory(prefix="merapy-dist-") as tmp:
-            subprocess.run(
-                [sys.executable, "-m", "build", "--outdir", tmp],
-                cwd=str(pkg_root),
-                check=True,
-            )
-            for artifact in sorted(Path(tmp).iterdir()):
-                if artifact.is_file():
-                    dest = output_dir / artifact.name
-                    shutil.copy2(artifact, dest)
-                    copied.append(dest)
+    with tempfile.TemporaryDirectory(prefix="merapy-dist-") as tmp:
+        subprocess.run(
+            [sys.executable, "-m", "build", "--outdir", tmp],
+            cwd=str(ROOT),
+            check=True,
+        )
+        for artifact in sorted(Path(tmp).iterdir()):
+            if artifact.is_file():
+                dest = output_dir / artifact.name
+                shutil.copy2(artifact, dest)
+                copied.append(dest)
     return copied
 
 

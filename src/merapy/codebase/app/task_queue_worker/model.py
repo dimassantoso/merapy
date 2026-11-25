@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
-from merapy_taskqueue.store.sql import (
-    Job,
-    JobHistory,
-    JobSummary,
-    TaskQueueBase,
-    TaskQueueConfiguration,
-)
-from merapy_taskqueue.types import JobStatus
+try:
+    from merapy_taskqueue.store.sql import (
+        Job,
+        JobHistory,
+        JobSummary,
+        TaskQueueBase,
+        TaskQueueConfiguration,
+    )
+    from merapy_taskqueue.types import JobStatus
+except ImportError as exc:
+    raise ImportError(
+        "merapy-taskqueue is required for task_queue_worker models. "
+        "Install it with: pip install 'merapy[taskqueue]' or pip install merapy-taskqueue[sql,metrics]"
+    ) from exc
 
 __all__ = [
     "Job",

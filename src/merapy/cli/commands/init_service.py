@@ -178,6 +178,11 @@ def init_service() -> None:
     worker_handlers = _prompt_worker_handlers()
     dependencies = _prompt_dependencies()
 
+    # Task Queue requires SQL (or Mongo) persistence; default to SQL automatically so boot never fails.
+    if "task_queue" in worker_handlers and "sql" not in dependencies and "mongo" not in dependencies:
+        dependencies.add("sql")
+        click.echo("\033[36mℹ task_queue selected — automatically enabling SQL dependency for job persistence\033[0m")
+
     target = cwd / service_name
     target.mkdir(parents=True, exist_ok=True)
 
@@ -231,5 +236,9 @@ def init_service() -> None:
     click.echo(f"  files    : {len(written)}")
 
     click.echo(f"\n  \033[1mcd {service_name}\033[0m")
-    click.echo(f"  python3 -m venv .venv && .venv/bin/pip install -e \".[dev]\"")
-    click.echo(f"  .venv/bin/merapy add-module")
+    click.echo("  python3 -m venv .venv && .venv/bin/pip install -e \".[dev]\"")
+    if "task_queue" in worker_handlers:
+        click.echo("  make migration-create name=init && make migration && make run")
+        click.echo("  # Task Queue Dashboard → http://localhost:8080")
+    else:
+        click.echo("  .venv/bin/merapy add-module")

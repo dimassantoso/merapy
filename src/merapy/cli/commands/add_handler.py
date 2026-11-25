@@ -61,6 +61,22 @@ _FILE_NAME = {
 }
 
 
+# Maps handler type → .env toggle key
+_ENV_FLAG = {
+    "rest": "USE_REST",
+    "grpc": "USE_GRPC",
+    "graphql": "USE_GRAPHQL",
+    "kafka": "USE_KAFKA_CONSUMER",
+    "cron": "USE_CRON_SCHEDULER",
+    "redis": "USE_REDIS_SUBSCRIBER",
+    "rabbitmq": "USE_RABBITMQ_WORKER",
+    "postgres": "USE_POSTGRES_LISTENER",
+    "task_queue": "USE_TASK_QUEUE_WORKER",
+}
+
+_TASK_QUEUE_DEP = "merapy-taskqueue[sql,metrics]"
+
+
 def _load_merapy_json(service_root: Path) -> dict:
     """Load merapy.json for service-level context (server/worker flags)."""
     p = service_root / "merapy.json"
@@ -131,6 +147,14 @@ def add_handler(module: str, handler_type: str, service_root: Path) -> None:
     # Wire the new handler into module.py.
     _wire_module(service_root, snake, pascal, handler_type)
 
+    # Enable the matching USE_* flag in .env (and add task_queue defaults).
+    env_updated = _update_env(service_root, handler_type)
+
+    # Ensure merapy-taskqueue dependency is listed when adding task_queue.
+    pyproject_updated = False
+    if handler_type == "task_queue":
+        pyproject_updated = _ensure_task_queue_dependency(service_root)
+
     # Update merapy.json so future add-handler calls see the full picture.
     _update_merapy_json(service_root, handler_type)
 
@@ -138,6 +162,16 @@ def add_handler(module: str, handler_type: str, service_root: Path) -> None:
         f"✓ generated {len(written)} file(s) for '{handler_type}' handler in module '{snake}'"
     )
     click.echo("  module.py updated")
+    if env_updated:
+        flag = _ENV_FLAG[handler_type]
+        click.echo(f"  .env updated ({flag}=true)")
+    if pyproject_updated:
+        click.echo(f"  pyproject.toml updated (added {_TASK_QUEUE_DEP})")
+    if handler_type == "task_queue":
+        click.echo(
+            "  Next: .venv/bin/pip install -e . && "
+            "make migration-create name=add_task_queue_tables && make migration && make run"
+        )
 
 
 def _wire_module(
@@ -237,6 +271,72 @@ def _wire_module(
                 )
 
     module_py.write_text(text)
+
+
+def _update_env(service_root: Path, handler_type: str) -> bool:
+    """Enable the handler's USE_* flag in .env and add required defaults."""
+    env_file = service_root / ".env"
+    if not env_file.exists():
+        return False
+
+    flag = _ENV_FLAG[handler_type]
+    text = env_file.read_text()
+    original = text
+
+    lines = text.splitlines()
+    found_flag = False
+    new_lines: list[str] = []
+    for line in lines:
+        if line.startswith(f"{flag}="):
+            new_lines.append(f"{flag}=true")
+            found_flag = True
+        else:
+            new_lines.append(line)
+    if not found_flag:
+        new_lines.append(f"{flag}=true")
+
+    if handler_type == "task_queue":
+        has_port = any(ln.startswith("TASK_QUEUE_DASHBOARD_PORT=") for ln in new_lines)
+        has_max = any(ln.startswith("TASK_QUEUE_DASHBOARD_MAX_CLIENT=") for ln in new_lines)
+        if not has_port:
+            new_lines.append("TASK_QUEUE_DASHBOARD_PORT=8080")
+        if not has_max:
+            new_lines.append("TASK_QUEUE_DASHBOARD_MAX_CLIENT=5")
+
+    updated = "\n".join(new_lines) + "\n"
+    if updated != original:
+        env_file.write_text(updated)
+        return True
+    return False
+
+
+def _ensure_task_queue_dependency(service_root: Path) -> bool:
+    """Ensure ``merapy-taskqueue[sql,metrics]`` is present in pyproject.toml dependencies."""
+    pyproj = service_root / "pyproject.toml"
+    if not pyproj.exists():
+        return False
+    text = pyproj.read_text()
+    if "merapy-taskqueue" in text:
+        return False
+
+    lines = text.splitlines(keepends=True)
+    in_deps = False
+    insert_at = -1
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("dependencies") and "[" in stripped:
+            in_deps = True
+            continue
+        if in_deps and stripped.startswith("]"):
+            insert_at = i
+            break
+
+    if insert_at == -1:
+        return False
+
+    lines.insert(insert_at, f'    "{_TASK_QUEUE_DEP}",\n')
+    pyproj.write_text("".join(lines))
+    return True
 
 
 def _update_merapy_json(service_root: Path, handler_type: str) -> None:

@@ -11,7 +11,6 @@ from merapy.codebase.app.postgres_worker.worker import PostgresListenerWorker
 from merapy.codebase.app.rabbitmq_worker.worker import RabbitMQWorker
 from merapy.codebase.app.redis_worker.worker import RedisWorker
 from merapy.codebase.app.rest_server.server import RESTServer
-from merapy.codebase.app.task_queue_worker.worker import TaskQueueWorker
 from merapy.codebase.factory.app_factory import AppServerFactory
 from merapy.codebase.factory.dependency import Dependency, get_dependency
 from merapy.codebase.factory.module_factory import ModuleFactory
@@ -57,6 +56,8 @@ class Service:
         if env.use_postgres_listener:
             apps.append(PostgresListenerWorker(self))
         if env.use_task_queue_worker:
+            from merapy.codebase.app.task_queue_worker.worker import TaskQueueWorker  # noqa: PLC0415
+
             apps.append(TaskQueueWorker(self))
         return apps
 

@@ -197,13 +197,13 @@ Want the background job queue and live dashboard in a plain FastAPI, Starlette, 
 
 ```bash
 # Minimal (in-memory store + embedded Preact dashboard)
-pip install ./packages/merapy-taskqueue
+pip install "merapy-taskqueue @ git+https://github.com/dimassantoso/merapy-taskqueue.git"
 
 # With SQL, MongoDB, Redis, or all optional extras
-pip install "./packages/merapy-taskqueue[sql]"
-pip install "./packages/merapy-taskqueue[mongo]"
-pip install "./packages/merapy-taskqueue[redis]"
-pip install "./packages/merapy-taskqueue[all]"
+pip install "merapy-taskqueue[sql] @ git+https://github.com/dimassantoso/merapy-taskqueue.git"
+pip install "merapy-taskqueue[mongo] @ git+https://github.com/dimassantoso/merapy-taskqueue.git"
+pip install "merapy-taskqueue[redis] @ git+https://github.com/dimassantoso/merapy-taskqueue.git"
+pip install "merapy-taskqueue[all] @ git+https://github.com/dimassantoso/merapy-taskqueue.git"
 ```
 
 ### Minimal Runnable Script (`app.py`)

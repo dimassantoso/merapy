@@ -10,6 +10,9 @@ requires-python = ">=3.11"
 dependencies = [
     "merapy",
     "merapy-tracer-otlp",
+{% if use_task_queue %}
+    "merapy-taskqueue[sql,metrics]",
+{% endif %}
 ]
 
 [project.optional-dependencies]

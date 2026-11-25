@@ -6,10 +6,16 @@ import asyncio
 import sys
 from typing import TYPE_CHECKING, Any
 
-from merapy_taskqueue.store.memory import MemoryJobStore
-from merapy_taskqueue.store.sql import SQLJobStore
-from merapy_taskqueue.types import TaskContext
-from merapy_taskqueue.worker import TaskQueue
+try:
+    from merapy_taskqueue.store.memory import MemoryJobStore
+    from merapy_taskqueue.store.sql import SQLJobStore
+    from merapy_taskqueue.types import TaskContext
+    from merapy_taskqueue.worker import TaskQueue
+except ImportError as exc:
+    raise ImportError(
+        "merapy-taskqueue is required when USE_TASK_QUEUE_WORKER=true. "
+        "Install it with: pip install 'merapy[taskqueue]' or pip install merapy-taskqueue[sql,metrics]"
+    ) from exc
 
 from merapy import __version__ as _merapy_version
 from merapy.codebase.app._worker_base import collect_handlers

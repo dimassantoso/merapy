@@ -1,25 +1,33 @@
 .PHONY: install dev test test-unit test-integration lint format typecheck ui-build build-binary release clean
 
 PYTHON ?= .venv/bin/python
+TASKQUEUE_DIR ?= ../merapy-taskqueue
+TASKQUEUE_URL ?= git+https://github.com/dimassantoso/merapy-taskqueue.git
 
 install:
-	$(PYTHON) -m pip install -e "./packages/merapy-taskqueue[all]"
+	@if [ -d "$(TASKQUEUE_DIR)" ]; then \
+		$(PYTHON) -m pip install -e "$(TASKQUEUE_DIR)[all]"; \
+	else \
+		$(PYTHON) -m pip install "merapy-taskqueue[all] @ $(TASKQUEUE_URL)"; \
+	fi
 	$(PYTHON) -m pip install -e .
 
 dev:
-	$(PYTHON) -m pip install -e "./packages/merapy-taskqueue[all,dev]"
+	@if [ -d "$(TASKQUEUE_DIR)" ]; then \
+		$(PYTHON) -m pip install -e "$(TASKQUEUE_DIR)[all,dev]"; \
+	else \
+		$(PYTHON) -m pip install "merapy-taskqueue[all] @ $(TASKQUEUE_URL)"; \
+	fi
 	$(PYTHON) -m pip install -e ".[dev]"
 
 test:
-	$(PYTHON) -m pytest tests/unit packages/merapy-taskqueue/tests -v --tb=short
+	$(PYTHON) -m pytest tests/unit -v --tb=short
 
 test-unit:
-	$(PYTHON) -m pytest tests/unit packages/merapy-taskqueue/tests -v
+	$(PYTHON) -m pytest tests/unit -v
 
 ui-build:
-	cd packages/merapy-taskqueue/ui && npm run build
-	rm -rf src/merapy/codebase/app/task_queue_worker/dashboard_static
-	cp -r packages/merapy-taskqueue/src/merapy_taskqueue/dashboard_static src/merapy/codebase/app/task_queue_worker/dashboard_static
+	$(MAKE) -C "$(TASKQUEUE_DIR)" embed MERAPY_DIR="$(CURDIR)"
 
 test-integration:
 	$(PYTHON) -m pytest -v -k integration

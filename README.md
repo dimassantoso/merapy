@@ -99,7 +99,7 @@ Enable `USE_TASK_QUEUE_WORKER=true` and open `http://localhost:8080`. The embedd
 
 ## Use the Task Queue in *Any* Python Project (`merapy-taskqueue`)
 
-You do not need the full `merapy` microservice framework to use the Task Queue and its live dashboard. The extracted standalone package lives in [`packages/merapy-taskqueue`](packages/merapy-taskqueue/README.md) and supports **In-Memory**, **SQLAlchemy**, **MongoDB**, and **Redis** backends out of the box.
+You do not need the full `merapy` microservice framework to use the Task Queue and its live dashboard. The standalone package lives in [`merapy-taskqueue`](https://github.com/dimassantoso/merapy-taskqueue) and supports **In-Memory**, **SQLAlchemy**, **MongoDB**, and **Redis** backends out of the box.
 
 ![Standalone merapy-taskqueue usage demo](docs/assets/standalone-taskqueue-demo.gif)
 
@@ -121,7 +121,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-See [`packages/merapy-taskqueue/README.md`](packages/merapy-taskqueue/README.md) for SQL, MongoDB, Redis, and FastAPI mounting examples.
+See [`merapy-taskqueue`](https://github.com/dimassantoso/merapy-taskqueue) for SQL, MongoDB, Redis, and FastAPI mounting examples.
 
 ---
 
@@ -175,7 +175,7 @@ main.py
 | Package / Repo | Purpose |
 |---|---|
 | [`merapy`](https://github.com/dimassantoso/merapy) | Core microservice framework + standalone CLI |
-| [`packages/merapy-taskqueue`](packages/merapy-taskqueue/README.md) | Standalone async Task Queue + embedded Vite/Preact dashboard |
+| [`merapy-taskqueue`](https://github.com/dimassantoso/merapy-taskqueue) | Standalone async Task Queue + embedded Vite/Preact dashboard |
 | [`merapy-plugin`](https://github.com/dimassantoso/merapy-plugin) | Optional adapters (AWS SQS/SNS, GCP Pub/Sub, STOMP, OracleDB, ArangoDB, Sanic, BlackSheep, P2P, Circuit Breaker, OTLP Tracer) |
 
 ---
